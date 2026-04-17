@@ -880,7 +880,29 @@ function App() {
     persistToDB();
   };
 
-  const nav = (v, msno) => { setView(v); setSelectedMSNO(msno || null); };
+  const nav = (v, msno) => {
+    setView(v); setSelectedMSNO(msno || null);
+    // Push to browser history so Back button works within the app
+    try { window.history.pushState({ view: v, msno: msno || null }, "", ""); } catch(e) {}
+  };
+
+  // Handle browser Back button — go to previous app view instead of leaving the page
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.state && e.state.view) {
+        setView(e.state.view);
+        setSelectedMSNO(e.state.msno || null);
+      } else {
+        // No state — go to dashboard (the "home" view)
+        setView("dashboard");
+        setSelectedMSNO(null);
+      }
+    };
+    window.addEventListener("popstate", handler);
+    // Set initial state
+    try { window.history.replaceState({ view: "dashboard", msno: null }, "", ""); } catch(e) {}
+    return () => window.removeEventListener("popstate", handler);
+  }, []);
 
   // Refresh from Google Sheet
   const refreshFromSheet = async () => {
@@ -1048,7 +1070,7 @@ function App() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6">
-        {view === "dashboard" && <Dashboard members={members} issues={issues} onboarding={onboarding} nav={nav} config={config} onExport={() => exportToExcel(DB.members, DB.config)} refreshFromSheet={refreshFromSheet} useSheet={useSheet}/>}
+        {view === "dashboard" && <Dashboard members={members} issues={issues} onboarding={onboarding} applications={applications} nav={nav} config={config} onExport={() => exportToExcel(DB.members, DB.config)} refreshFromSheet={refreshFromSheet} useSheet={useSheet}/>}
         {view === "enroll" && <EnrollWizard zones={zones} config={config} onDone={() => { refresh(); nav("members"); }}/>}
         {view === "onboarding" && <OnboardingQueue onboarding={onboarding} applications={applications} refresh={refresh} nav={nav} zones={zones} config={config} onApproveApp={async (app) => {
           // Convert application to member and add
@@ -1089,7 +1111,7 @@ function App() {
 /* ═══════════════════════════════════════════════════════════════════════════
    DASHBOARD (SUMMARY tab)
    ═══════════════════════════════════════════════════════════════════════════ */
-function Dashboard({ members, issues, onboarding, nav, config, onExport, refreshFromSheet, useSheet }) {
+function Dashboard({ members, issues, onboarding, applications = [], nav, config, onExport, refreshFromSheet, useSheet }) {
   const active = members.filter(m => m.status === "ACTIVE").length;
   const removed = members.filter(m => m.status === "REMOVED").length;
   const deceased = members.filter(m => m.status === "DECEASED").length;
@@ -1165,7 +1187,7 @@ function Dashboard({ members, issues, onboarding, nav, config, onExport, refresh
     { label:"Total Members", value:total, border:"border-l-blue-600", click:() => nav("members") },
     { label:"Active", value:active, border:"border-l-green-600", click:() => nav("members") },
     { label:"Removed / Deceased", value:removed + deceased, border:"border-l-red-500", click:() => nav("members") },
-    { label:"Pending Applications", value:onboarding.length, border:"border-l-amber-500", click:() => nav("onboarding") },
+    { label:"Pending Applications", value:onboarding.length + applications.length, border:"border-l-amber-500", click:() => nav("onboarding") },
     { label:"Data Issues", value:issues.length, border: issues.length ? "border-l-red-600" : "border-l-green-600", click:() => nav("issues") },
     { label:"Avg Age", value:avgAge, border:"border-l-purple-600" },
   ];
