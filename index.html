@@ -365,11 +365,15 @@ const IMPORT_MAP = {
   "APPLICATION_DATE": "applicationDate", "ADMISSION_FEE_PAID": "admissionFeePaid",
   "SUBSCRIPTION_YEARS": "subscriptionYears", "PAYMENT_MODE": "paymentMode",
   "PAYMENT_REF": "paymentRef",
-  // Original Master List headers (MEMBERS MASTER LIST AS ON 31.03.2025)
-  "S.NO": "_sno", "PF NO": "pf", "CONTACT NO": "mobile", "CONTACT NO.2": "familyContact",
-  "DOJ-BOIPARASZ": "doj", "EMAIL  ID": "email", "EMAIL ID": "email",
-  // Registrar Form 6 headers
-  "SON / WINE  OF": "sowo", "SON/WIFE OF": "sowo", "S/O W/O D/O": "sowo",
+  // Original Master List headers (MEMBERS MASTER LIST AS ON 31.03.2025/2026)
+  "S.NO": "_sno", "PF NO": "pf", "P F NO": "pf", "P.F.NO": "pf", "P.F. NO": "pf", "PFNO": "pf",
+  "CONTACT NO": "mobile", "CONTACT NO.": "mobile", "CONTACT NO.2": "familyContact",
+  "DOJ-BOIPARASZ": "doj", "EMAIL  ID": "email", "EMAIL ID": "email", "EMAIL": "email",
+  "ZONE": "zone",
+  // Registrar Form 6 headers / spouse variants
+  "SON / WIFE  OF": "sowo", "SON / WIFE OF": "sowo", "SON / WINE  OF": "sowo",
+  "SON/WIFE OF": "sowo", "S/O W/O D/O": "sowo", "SON/WIFE/DAUGHTER OF": "sowo",
+  "S_W_D_O": "sowo", "S/W/D OF": "sowo",
   "AGE": "_age", "FP NO": "pf", "MOBILE NO": "mobile",
   "OCCUPATION": "category", "DATE OF ENROLMENT": "doj", "DATE OF ENROLMENT ": "doj",
   "DATE OF REMOVAL": "dateOfChange", "REMARKS ": "notes",
@@ -408,7 +412,7 @@ function importExcel(file) {
 
         // Find header row — scan first 10 rows for known column names
         let headerIdx = -1;
-        const knownHeaders = ["M.S.NO", "PF_NO", "PF NO", "NAME", "TITLE", "CENTRE", "FP NO"];
+        const knownHeaders = ["M.S.NO", "PF_NO", "PF NO", "P F NO", "NAME", "TITLE", "CENTRE", "FP NO", "ZONE", "CONTACT NO"];
         for (let i = 0; i < Math.min(raw.length, 10); i++) {
           const row = (raw[i] || []).map(c => String(c || "").trim().toUpperCase());
           const matches = row.filter(c => knownHeaders.includes(c));
@@ -418,10 +422,15 @@ function importExcel(file) {
 
         const headers = (raw[headerIdx] || []).map(c => String(c || "").trim());
 
-        // Build column index map — try exact match, then uppercase, then with normalized spaces
+        // Build column index map — try exact match, then uppercase, then with normalized spaces, then collapsed spaces
         const colMap = {};
         headers.forEach((h, idx) => {
-          const key = IMPORT_MAP[h] || IMPORT_MAP[h.toUpperCase()] || IMPORT_MAP[h.replace(/\s+/g, " ").trim()] || IMPORT_MAP[h.replace(/\s+/g, " ").trim().toUpperCase()];
+          const hUp = h.toUpperCase();
+          const hNorm = h.replace(/\s+/g, " ").trim();
+          const hNormUp = hNorm.toUpperCase();
+          const hCollapsed = h.replace(/\s+/g, "").trim(); // "P F NO" -> "PFNO"
+          const hCollapsedUp = hCollapsed.toUpperCase();
+          const key = IMPORT_MAP[h] || IMPORT_MAP[hUp] || IMPORT_MAP[hNorm] || IMPORT_MAP[hNormUp] || IMPORT_MAP[hCollapsed] || IMPORT_MAP[hCollapsedUp];
           if (key && key !== "_sno" && key !== "_age") colMap[idx] = key;
         });
 
