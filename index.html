@@ -1912,45 +1912,219 @@ function IssuesView({ issues, nav }) {
    ═══════════════════════════════════════════════════════════════════════════ */
 function Reports({ members, config }) {
   const [tab, setTab] = useState("form6");
-  const [sinceDate, setSinceDate] = useState("2025-01-01");
 
+  /* ── Financial Year helper ── */
+  const getCurrentFY = () => {
+    const now = new Date();
+    const yr = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+    return yr;  // e.g. 2026 means FY 2026-27 (Apr 2026 – Mar 2027)
+  };
+  const [fyStart, setFyStart] = useState(getCurrentFY);
+
+  const fyStartDate = `${fyStart}-04-01`;       // 1 Apr of start year
+  const fyEndDate   = `${fyStart + 1}-03-31`;   // 31 Mar of end year
+  const fyLabel     = `FY ${fyStart}-${String(fyStart + 1).slice(2)}`;
+
+  /* Build FY options: from 2020-21 up to current+1 */
+  const fyOptions = useMemo(() => {
+    const cur = getCurrentFY();
+    const opts = [];
+    for (let y = 2020; y <= cur + 1; y++) opts.push(y);
+    return opts;
+  }, []);
+
+  /* ── Data filtered by FY ── */
   const active = members.filter(m => m.status === "ACTIVE").sort((a,b) => a.msno - b.msno);
-  const newSince = members.filter(m => m.status === "ACTIVE" && m.doj >= sinceDate).sort((a,b) => a.msno - b.msno);
-  const delSince = members.filter(m => m.status !== "ACTIVE" && m.dateOfChange >= sinceDate).sort((a,b) => a.msno - b.msno);
+
+  // Members added during this FY (joined within Apr-Mar and currently active OR have doj in range)
+  const addedInFY = members.filter(m => m.doj >= fyStartDate && m.doj <= fyEndDate).sort((a,b) => a.msno - b.msno);
+
+  // Members removed during this FY (non-active with dateOfChange in Apr-Mar range)
+  const removedInFY = members.filter(m => m.status !== "ACTIVE" && m.dateOfChange >= fyStartDate && m.dateOfChange <= fyEndDate).sort((a,b) => a.msno - b.msno);
+
+  /* ── Reconciliation calculation ── */
+  // Opening balance = active count at start of FY
+  // = current active + removed during FY - added during FY
+  // (Because: Opening + Added - Removed = Current Active)
+  const closingBalance = active.length;
+  const addedCount = addedInFY.length;
+  const removedCount = removedInFY.length;
+  const openingBalance = closingBalance - addedCount + removedCount;
+
+  /* ── Reconciliation expandable sections ── */
+  const [showAdded, setShowAdded] = useState(false);
+  const [showRemoved, setShowRemoved] = useState(false);
 
   const handlePrint = () => { window.print(); };
+
+  const tabDefs = [
+    ["reconcile","Reconciliation"],
+    ["form6","Form 6 — Member List"],
+    ["form7new","Form 7 — New Members"],
+    ["form7del","Form 7 — Removed Members"],
+    ["masterlist","Master List"]
+  ];
+
+  const statusLabel = (s) => {
+    const map = { "NON_PAYMENT":"Non-Payment", "REMOVED":"Removed", "DECEASED":"Deceased", "RESIGNED":"Resigned", "TRANSFERRED":"Transferred" };
+    return map[s] || s;
+  };
+
+  /* ── Summary by removal reason ── */
+  const removalBreakdown = useMemo(() => {
+    const counts = {};
+    removedInFY.forEach(m => {
+      const reason = m.reasonForChange || m.status || "Unknown";
+      counts[reason] = (counts[reason] || 0) + 1;
+    });
+    return Object.entries(counts).sort((a,b) => b[1] - a[1]);
+  }, [removedInFY]);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between no-print">
-        <div><h2 className="text-lg font-bold text-gray-900">Statutory Reports</h2><p className="text-sm text-gray-500">Form 6 (member list) and Form 7 (changes) for Registrar of Societies.</p></div>
+        <div><h2 className="text-lg font-bold text-gray-900">Statutory Reports</h2><p className="text-sm text-gray-500">Form 6, Form 7, and Reconciliation for Registrar of Societies.</p></div>
       </div>
 
       <div className="flex gap-2 flex-wrap no-print">
-        {[["form6","Form 6 — Member List"],["form7new","Form 7 — New Members"],["form7del","Form 7 — Removed Members"],["masterlist","Master List — Full Details"]].map(([id,label]) => (
+        {tabDefs.map(([id,label]) => (
           <button key={id} onClick={() => setTab(id)} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === id ? "bg-blue-900 text-white" : "bg-white border text-gray-700 hover:bg-gray-50"}`}>{label}</button>
         ))}
       </div>
 
-      {(tab === "form7new" || tab === "form7del") && (
+      {/* FY Selector — shown for Form 7 and Reconciliation tabs */}
+      {(tab === "form7new" || tab === "form7del" || tab === "reconcile") && (
         <div className="flex items-center gap-3 no-print">
-          <label className="text-sm font-medium text-gray-700">Changes since:</label>
-          <input type="date" value={sinceDate} onChange={e => setSinceDate(e.target.value)} className="border rounded-lg px-3 py-2 text-sm"/>
+          <label className="text-sm font-medium text-gray-700">Financial Year:</label>
+          <select value={fyStart} onChange={e => setFyStart(Number(e.target.value))} className="border rounded-lg px-3 py-2 text-sm bg-white">
+            {fyOptions.map(y => <option key={y} value={y}>FY {y}-{String(y+1).slice(2)} (Apr {y} – Mar {y+1})</option>)}
+          </select>
         </div>
       )}
 
+      {/* ═══════ RECONCILIATION TAB ═══════ */}
+      {tab === "reconcile" && (
+        <div className="space-y-4">
+          {/* Summary Card */}
+          <div className="bg-white rounded-xl shadow-sm border p-6">
+            <h3 className="text-base font-bold text-gray-900 mb-1">Membership Reconciliation — {fyLabel}</h3>
+            <p className="text-xs text-gray-500 mb-4">Opening Balance + Additions − Removals = Closing Balance (Form 6 count)</p>
+
+            <div className="grid grid-cols-5 gap-3 text-center">
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <div className="text-2xl font-bold text-blue-900">{openingBalance}</div>
+                <div className="text-xs text-gray-600 mt-1">Opening Balance</div>
+                <div className="text-xs text-gray-400">1 Apr {fyStart}</div>
+              </div>
+              <div className="flex items-center justify-center text-2xl font-bold text-gray-400">+</div>
+              <div className="bg-green-50 rounded-lg p-4 border border-green-200 cursor-pointer hover:bg-green-100 transition" onClick={() => setShowAdded(!showAdded)}>
+                <div className="text-2xl font-bold text-green-700">{addedCount}</div>
+                <div className="text-xs text-gray-600 mt-1">Members Added</div>
+                <div className="text-xs text-blue-500 mt-1">{showAdded ? "▲ Hide" : "▼ View list"}</div>
+              </div>
+              <div className="flex items-center justify-center text-2xl font-bold text-gray-400">−</div>
+              <div className="bg-red-50 rounded-lg p-4 border border-red-200 cursor-pointer hover:bg-red-100 transition" onClick={() => setShowRemoved(!showRemoved)}>
+                <div className="text-2xl font-bold text-red-700">{removedCount}</div>
+                <div className="text-xs text-gray-600 mt-1">Members Removed</div>
+                <div className="text-xs text-blue-500 mt-1">{showRemoved ? "▲ Hide" : "▼ View list"}</div>
+              </div>
+            </div>
+
+            {/* Result row */}
+            <div className="mt-4 flex items-center justify-between bg-gray-50 rounded-lg p-4 border">
+              <div className="text-sm text-gray-700">
+                <span className="font-semibold">{openingBalance}</span> + <span className="text-green-700 font-semibold">{addedCount}</span> − <span className="text-red-700 font-semibold">{removedCount}</span> = <span className="font-bold text-blue-900 text-lg">{openingBalance + addedCount - removedCount}</span>
+              </div>
+              <div className="text-right">
+                <div className="text-xs text-gray-500">Form 6 Active Count</div>
+                <div className={`text-lg font-bold ${(openingBalance + addedCount - removedCount) === closingBalance ? "text-green-700" : "text-red-700"}`}>
+                  {closingBalance}
+                  {(openingBalance + addedCount - removedCount) === closingBalance
+                    ? <span className="text-xs ml-2 text-green-600">✓ Tallied</span>
+                    : <span className="text-xs ml-2 text-red-600">✗ Mismatch ({closingBalance - (openingBalance + addedCount - removedCount)})</span>
+                  }
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Removal Breakdown */}
+          {removedCount > 0 && (
+            <div className="bg-white rounded-xl shadow-sm border p-4">
+              <h4 className="text-sm font-semibold text-gray-800 mb-2">Removal Breakdown</h4>
+              <div className="flex gap-3 flex-wrap">
+                {removalBreakdown.map(([reason, count]) => (
+                  <div key={reason} className="bg-gray-50 rounded-lg px-3 py-2 border text-sm">
+                    <span className="font-medium text-gray-700">{statusLabel(reason)}</span>
+                    <span className="ml-2 text-red-600 font-bold">{count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Expandable: Added Members */}
+          {showAdded && (
+            <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+              <div className="px-4 py-3 bg-green-50 border-b"><span className="text-sm font-semibold text-green-800">Members Added in {fyLabel} ({addedCount})</span></div>
+              <div className="overflow-x-auto">
+                <table className="w-full" style={{borderCollapse:"collapse",fontSize:"11px"}}>
+                  <thead><tr className="bg-green-800 text-white">
+                    {["S.No","MS.NO","Name","S/o W/o D/o","PF No.","Zone","Centre","Mobile","DOJ"].map(h => <th key={h} className="px-2 py-1.5 text-left font-semibold border border-green-700" style={{fontSize:"10px"}}>{h}</th>)}
+                  </tr></thead>
+                  <tbody>
+                    {addedInFY.map((m,i) => (
+                      <tr key={m.msno} className={i%2 ? "bg-gray-50":""}>
+                        {[i+1, m.msno, m.name, m.sowo, m.pf, m.zone, m.centre, m.mobile, m.doj].map((v,j) =>
+                          <td key={j} className="px-2 py-1 border border-gray-200">{v}</td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Expandable: Removed Members */}
+          {showRemoved && (
+            <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+              <div className="px-4 py-3 bg-red-50 border-b"><span className="text-sm font-semibold text-red-800">Members Removed in {fyLabel} ({removedCount})</span></div>
+              <div className="overflow-x-auto">
+                <table className="w-full" style={{borderCollapse:"collapse",fontSize:"11px"}}>
+                  <thead><tr className="bg-red-800 text-white">
+                    {["S.No","MS.NO","Name","S/o W/o D/o","PF No.","Zone","Centre","Date of Change","Reason","Status"].map(h => <th key={h} className="px-2 py-1.5 text-left font-semibold border border-red-700" style={{fontSize:"10px"}}>{h}</th>)}
+                  </tr></thead>
+                  <tbody>
+                    {removedInFY.map((m,i) => (
+                      <tr key={m.msno} className={i%2 ? "bg-gray-50":""}>
+                        {[i+1, m.msno, m.name, m.sowo, m.pf, m.zone, m.centre, m.dateOfChange, m.reasonForChange, statusLabel(m.status)].map((v,j) =>
+                          <td key={j} className="px-2 py-1 border border-gray-200">{v}</td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ═══════ FORM 6 / FORM 7 / MASTER LIST (printable) ═══════ */}
+      {tab !== "reconcile" && (
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b no-print">
           <span className="text-sm font-medium text-gray-700">
-            {tab === "form6" ? `${active.length} active members` : tab === "form7new" ? `${newSince.length} new members since ${sinceDate}` : tab === "form7del" ? `${delSince.length} removed since ${sinceDate}` : `${active.length} active members — full details`}
+            {tab === "form6" ? `${active.length} active members` : tab === "form7new" ? `${addedInFY.length} new members in ${fyLabel}` : tab === "form7del" ? `${removedInFY.length} removed in ${fyLabel}` : `${active.length} active members — full details`}
           </span>
           <button onClick={handlePrint} className="flex items-center gap-2 text-sm text-blue-900 font-medium hover:underline"><Printer size={14}/>Print</button>
         </div>
 
         <div id="report-content" className="p-4 overflow-x-auto">
           <h2 style={{color:"#1F3864"}}>{config.associationName} — South Zone</h2>
-          <h3 style={{color:"#666",fontSize:"13px"}}>{tab === "form6" ? "FORM 6 — List of Members (Register of Societies Act)" : tab === "form7new" ? "FORM 7 — New Members Added" : tab === "form7del" ? "FORM 7 — Members Removed" : "MASTER LIST — Complete Member Details"}</h3>
-          <p style={{fontSize:"11px",color:"#999"}}>Reg. No. {config.regNo} · Generated: {new Date().toISOString().slice(0,10)}</p>
+          <h3 style={{color:"#666",fontSize:"13px"}}>{tab === "form6" ? "FORM 6 — List of Members (Register of Societies Act)" : tab === "form7new" ? `FORM 7 — New Members Added (${fyLabel})` : tab === "form7del" ? `FORM 7 — Members Removed (${fyLabel})` : "MASTER LIST — Complete Member Details"}</h3>
+          <p style={{fontSize:"11px",color:"#999"}}>Reg. No. {config.regNo} · Generated: {new Date().toISOString().slice(0,10)}{(tab === "form7new" || tab === "form7del") ? ` · Period: ${fyStartDate} to ${fyEndDate}` : ""}</p>
 
           {/* FORM 6 — Official Registrar Format */}
           {tab === "form6" && (
@@ -1987,7 +2161,7 @@ function Reports({ members, config }) {
                 {["S.No","M.S.NO","Name","S/o W/o D/o","PF No.","Cat.","Address","Mobile","Zone","Centre","DOJ","Email"].map(h => <th key={h} className="px-1 py-1.5 text-left font-semibold border border-blue-800" style={{fontSize:"9px"}}>{h}</th>)}
               </tr></thead>
               <tbody>
-                {newSince.map((m,i) => (
+                {addedInFY.map((m,i) => (
                   <tr key={m.msno} className={i%2 ? "bg-gray-50":""}>
                     {[i+1, m.msno, m.name, m.sowo, m.pf, m.category, m.address, m.mobile, m.zone, m.centre, m.doj, m.email].map((v,j) =>
                       <td key={j} className="px-1 py-1 border border-gray-300" style={{overflow:"hidden",wordWrap:"break-word"}}>{v}</td>
@@ -2010,7 +2184,7 @@ function Reports({ members, config }) {
                 {["S.No","M.S.NO","Name","S/o W/o D/o","PF No.","Cat.","Centre","Zone","Date of Change","Reason","DOJ"].map(h => <th key={h} className="px-1 py-1.5 text-left font-semibold border border-blue-800" style={{fontSize:"9px"}}>{h}</th>)}
               </tr></thead>
               <tbody>
-                {delSince.map((m,i) => (
+                {removedInFY.map((m,i) => (
                   <tr key={m.msno} className={i%2 ? "bg-gray-50":""}>
                     {[i+1, m.msno, m.name, m.sowo, m.pf, m.category, m.centre, m.zone, m.dateOfChange, m.reasonForChange, m.doj].map((v,j) =>
                       <td key={j} className="px-1 py-1 border border-gray-300" style={{overflow:"hidden",wordWrap:"break-word"}}>{v}</td>
@@ -2048,6 +2222,7 @@ function Reports({ members, config }) {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }
