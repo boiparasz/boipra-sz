@@ -18,6 +18,21 @@
   th, td { border: 1px solid #999; padding: 4px 8px; text-align: left; }
   th { background: #1F3864; color: #fff; font-size: 10px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .mobile-nav { flex-wrap: wrap !important; gap: 4px !important; }
+  .mobile-nav button { padding: 6px 8px !important; font-size: 10px !important; }
+  .mobile-nav button span:not(.badge) { display: none; } /* hide badge text but keep icon */
+  header h1 { font-size: 14px !important; }
+  header p { font-size: 10px !important; }
+  .mobile-stack { flex-direction: column !important; }
+  .mobile-full { width: 100% !important; min-width: 0 !important; }
+  .mobile-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .mobile-scroll table { min-width: 700px; }
+  .mobile-hide { display: none !important; }
+  .mobile-small { font-size: 12px !important; }
+  main { padding-left: 8px !important; padding-right: 8px !important; }
+}
 </style>
 </head>
 <body>
@@ -108,6 +123,64 @@ function RefreshCw({ size = 24, className = "" }) {
 }
 function Database({ size = 24, className = "" }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PASSWORD GATE — simple shared password before app loads
+   ═══════════════════════════════════════════════════════════════════════════ */
+const APP_PASSWORD = "BOIPRA2026";
+const AUTH_KEY = "boipra_auth";
+
+function PasswordGate({ onUnlock }) {
+  const [pw, setPw] = useState("");
+  const [error, setError] = useState("");
+  const [show, setShow] = useState(false);
+
+  // Check if already authenticated this session
+  useEffect(() => {
+    if (sessionStorage.getItem(AUTH_KEY) === "1") onUnlock();
+  }, []);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (pw.trim().toUpperCase() === APP_PASSWORD) {
+      sessionStorage.setItem(AUTH_KEY, "1");
+      onUnlock();
+    } else {
+      setError("Incorrect password. Please try again.");
+      setPw("");
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-blue-900 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center">
+        <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-4">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1e3a8a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
+        <h2 className="text-xl font-bold text-blue-900 mb-1">BOIPRA - South Zone</h2>
+        <p className="text-gray-500 text-sm mb-6">Enter the access password to continue</p>
+        <form onSubmit={handleSubmit}>
+          <div className="relative mb-4">
+            <input type={show ? "text" : "password"} value={pw} onChange={e => setPw(e.target.value)} placeholder="Enter password"
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none text-center text-lg tracking-widest"
+              autoFocus/>
+            <button type="button" onClick={() => setShow(!show)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              {show ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                : <Eye size={18}/>}
+            </button>
+          </div>
+          {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
+          <button type="submit" className="w-full bg-blue-900 text-white py-3 rounded-xl font-semibold hover:bg-blue-800 transition">
+            Unlock App
+          </button>
+        </form>
+        <p className="text-gray-400 text-xs mt-4">Contact your BOIPRA-SZ administrator for the password</p>
+      </div>
+    </div>
+  );
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -477,7 +550,7 @@ function getIssues(m, zones) {
   if (!m.bloodGroup) issues.push("MissingBloodGroup");
   if (!m.mobile) issues.push("MissingMobile");
   if (!m.email) issues.push("MissingEmail");
-  if (m.zone && !zones.find(z => z.zone === m.zone.toUpperCase())) issues.push("BadZone");
+  if (m.zone && !zones.find(z => z.zone === String(m.zone).toUpperCase())) issues.push("BadZone");
   return issues;
 }
 
@@ -670,6 +743,7 @@ function WelcomeScreen({ onConnectSheet, onImport, onStartFresh }) {
    MAIN APP
    ═══════════════════════════════════════════════════════════════════════════ */
 function App() {
+  const [authenticated, setAuthenticated] = useState(sessionStorage.getItem(AUTH_KEY) === "1");
   const [loading, setLoading] = useState(true);
   const [hasData, setHasData] = useState(false);
   const [useSheet, setUseSheet] = useState(false); // Google Sheets mode
@@ -728,6 +802,20 @@ function App() {
       setLoading(false);
     })();
   }, []);
+
+  // Auto-refresh from Google Sheet every 60 seconds for multi-user sync
+  useEffect(() => {
+    if (!authenticated || !getScriptUrl()) return;
+    const interval = setInterval(async () => {
+      try {
+        const sheetMembers = await sheetFetchMembers();
+        DB.members = sheetMembers;
+        DB.nextMSNO = sheetMembers.length > 0 ? Math.max(...sheetMembers.map(m => m.msno)) + 1 : 1001;
+        setMembers([...DB.members]);
+      } catch (e) { /* silent fail on background sync */ }
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [authenticated]);
 
   // Save: to Google Sheet (if connected) AND IndexedDB (always as backup)
   const persistToDB = useCallback(() => {
@@ -870,6 +958,11 @@ function App() {
     return all;
   }, [members, zones]);
 
+  // Password gate
+  if (!authenticated) {
+    return <PasswordGate onUnlock={() => setAuthenticated(true)}/>;
+  }
+
   if (loading) {
     return <div className="min-h-screen bg-blue-900 flex items-center justify-center"><div className="text-center"><RefreshCw size={32} className="text-white animate-spin mx-auto mb-4"/><p className="text-blue-300">Loading...</p></div></div>;
   }
@@ -897,25 +990,28 @@ function App() {
             <div><h1 className="text-white font-bold text-lg leading-tight">BOIPRA - South Zone</h1>
             <p className="text-blue-300 text-xs">Membership Management System</p></div>
           </button>
-          <div className="flex items-center gap-3">
-            {syncing && <RefreshCw size={14} className="text-blue-300 animate-spin"/>}
-            {saveStatus === "synced" && <span className="text-green-400 text-xs flex items-center gap-1"><Check size={12}/>Synced to Sheet</span>}
-            {saveStatus === "saved" && <span className="text-green-400 text-xs flex items-center gap-1"><Check size={12}/>Saved locally</span>}
-            {saveStatus === "local" && <span className="text-amber-400 text-xs flex items-center gap-1"><AlertCircle size={12}/>Offline</span>}
-            {syncError && <span className="text-red-400 text-xs">{syncError}</span>}
-            {getScriptUrl() && <button onClick={refreshFromSheet} title="Refresh from Google Sheet" className="text-blue-300 hover:text-white transition p-1"><RefreshCw size={14}/></button>}
-            <nav className="flex gap-1 overflow-x-auto">
+          <div className="flex items-center gap-3 mobile-stack">
+            <div className="flex items-center gap-2">
+              {syncing && <RefreshCw size={14} className="text-blue-300 animate-spin"/>}
+              {saveStatus === "synced" && <span className="text-green-400 text-xs flex items-center gap-1"><Check size={12}/><span className="mobile-hide">Synced to Sheet</span></span>}
+              {saveStatus === "saved" && <span className="text-green-400 text-xs flex items-center gap-1"><Check size={12}/><span className="mobile-hide">Saved locally</span></span>}
+              {saveStatus === "local" && <span className="text-amber-400 text-xs flex items-center gap-1"><AlertCircle size={12}/><span className="mobile-hide">Offline</span></span>}
+              {syncError && <span className="text-red-400 text-xs mobile-hide">{syncError}</span>}
+              {getScriptUrl() && <button onClick={refreshFromSheet} title="Refresh from Google Sheet" className="text-blue-300 hover:text-white transition p-1"><RefreshCw size={14}/></button>}
+              <button onClick={() => { sessionStorage.removeItem(AUTH_KEY); window.location.reload(); }} title="Logout" className="text-blue-300 hover:text-white transition p-1"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
+            </div>
+            <nav className="flex gap-1 overflow-x-auto mobile-nav">
               {tabs.map(t => (
                 <button key={t.id} onClick={() => nav(t.id)}
                   className={`px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all whitespace-nowrap ${
                     view === t.id || (view === "member-detail" && t.id === "members") ? "bg-white text-blue-900" : "text-blue-200 hover:bg-blue-800"
                   }`}>
-                  {t.icon}{t.label}
+                  {t.icon}<span className="mobile-hide">{t.label}</span>
                   {t.id === "issues" && issues.length > 0 && (
-                    <span className="bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">{issues.length}</span>
+                    <span className="badge bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">{issues.length}</span>
                   )}
                   {t.id === "onboarding" && onboarding.length > 0 && (
-                    <span className="bg-amber-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">{onboarding.length}</span>
+                    <span className="badge bg-amber-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">{onboarding.length}</span>
                   )}
                 </button>
               ))}
@@ -925,7 +1021,7 @@ function App() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6">
-        {view === "dashboard" && <Dashboard members={members} issues={issues} onboarding={onboarding} nav={nav} config={config}/>}
+        {view === "dashboard" && <Dashboard members={members} issues={issues} onboarding={onboarding} nav={nav} config={config} onExport={() => exportToExcel(DB.members, DB.config)} refreshFromSheet={refreshFromSheet} useSheet={useSheet}/>}
         {view === "enroll" && <EnrollWizard zones={zones} config={config} onDone={() => { refresh(); nav("members"); }}/>}
         {view === "onboarding" && <OnboardingQueue onboarding={onboarding} refresh={refresh} nav={nav} zones={zones} config={config}/>}
         {view === "members" && <MemberList members={members} nav={nav} refresh={refresh} zones={zones}/>}
@@ -935,8 +1031,8 @@ function App() {
         {view === "settings" && <SettingsView config={config} zones={zones} refresh={refresh} members={members} onImport={handleSettingsImport} onReset={handleReset} onExport={() => exportToExcel(DB.members, DB.config)} useSheet={useSheet} onPushToSheet={async () => { setSyncing(true); try { await sheetSaveAllMembers(DB.members); setSaveStatus("synced"); } catch(e) { setSyncError(e.message); } setSyncing(false); setTimeout(() => setSaveStatus(""), 3000); }} onRefreshFromSheet={refreshFromSheet}/>}
       </main>
 
-      <footer className="no-print text-center py-3 text-xs text-gray-400 border-t bg-white">
-        {members.length} members {getScriptUrl() ? <>synced to Google Sheet &middot; <span className="text-green-600">Multi-user mode</span></> : "stored locally in this browser"} &middot; Last saved: {new Date().toLocaleTimeString()}
+      <footer className="no-print text-center py-3 text-xs text-gray-400 border-t bg-white mobile-small">
+        {members.length} members {getScriptUrl() ? <>synced to Google Sheet &middot; <span className="text-green-600">Multi-user mode</span></> : "stored locally in this browser"} <span className="mobile-hide">&middot; Last saved: {new Date().toLocaleTimeString()}</span>
       </footer>
     </div>
   );
@@ -945,80 +1041,208 @@ function App() {
 /* ═══════════════════════════════════════════════════════════════════════════
    DASHBOARD (SUMMARY tab)
    ═══════════════════════════════════════════════════════════════════════════ */
-function Dashboard({ members, issues, onboarding, nav, config }) {
+function Dashboard({ members, issues, onboarding, nav, config, onExport, refreshFromSheet, useSheet }) {
   const active = members.filter(m => m.status === "ACTIVE").length;
   const removed = members.filter(m => m.status === "REMOVED").length;
   const deceased = members.filter(m => m.status === "DECEASED").length;
+  const expired = members.filter(m => m.status === "EXPIRED").length;
   const total = members.length;
 
-  const centres = {}; const zoneCount = {}; const bloodCount = {};
+  const centres = {};
   let ageSum = 0, ageN = 0;
   members.filter(m => m.status === "ACTIVE").forEach(m => {
     centres[m.centre] = (centres[m.centre] || 0) + 1;
-    zoneCount[m.zone] = (zoneCount[m.zone] || 0) + 1;
-    if (m.bloodGroup) bloodCount[m.bloodGroup] = (bloodCount[m.bloodGroup] || 0) + 1;
     const a = getAge(m.dob); if (a) { ageSum += a; ageN++; }
   });
   const topCentres = Object.entries(centres).sort((a,b) => b[1] - a[1]);
   const maxC = topCentres.length ? topCentres[0][1] : 1;
+  const totalActive = active || 1;
   const avgAge = ageN ? Math.round(ageSum / ageN) : "\u2014";
 
+  // Membership dues calculation
+  const now = new Date();
+  const duesInfo = useMemo(() => {
+    let paidUp = 0, dueForRenewal = 0, noInfo = 0;
+    members.filter(m => m.status === "ACTIVE").forEach(m => {
+      if (!m.doj || !m.subscriptionYears) { noInfo++; return; }
+      const doj = new Date(m.doj);
+      if (isNaN(doj.getTime())) { noInfo++; return; }
+      const coveredUntil = new Date(doj);
+      coveredUntil.setFullYear(coveredUntil.getFullYear() + Number(m.subscriptionYears));
+      if (coveredUntil > now) paidUp++;
+      else dueForRenewal++;
+    });
+    return { paidUp, dueForRenewal, noInfo };
+  }, [members]);
+  const duesTotal = duesInfo.paidUp + duesInfo.dueForRenewal + duesInfo.noInfo || 1;
+
+  // Upcoming birthdays
+  const birthdays = useMemo(() => {
+    const currentMonth = now.getMonth();
+    const nextMonth = (currentMonth + 1) % 12;
+    const today = now.getDate();
+    return members.filter(m => m.status === "ACTIVE" && m.dob).map(m => {
+      const d = new Date(m.dob);
+      if (isNaN(d.getTime())) return null;
+      const bMonth = d.getMonth();
+      if (bMonth !== currentMonth && bMonth !== nextMonth) return null;
+      const bDay = d.getDate();
+      const age = now.getFullYear() - d.getFullYear();
+      const isToday = bMonth === currentMonth && bDay === today;
+      const sortKey = bMonth === currentMonth ? bDay : 32 + bDay;
+      return { msno: m.msno, name: m.name, date: `${bDay}/${bMonth+1}`, turnsAge: age, isToday, sortKey, bMonth };
+    }).filter(Boolean).sort((a,b) => a.sortKey - b.sortKey);
+  }, [members]);
+
+  // Recent activity (last 90 days)
+  const recentActivity = useMemo(() => {
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 90);
+    const items = [];
+    members.forEach(m => {
+      if (m.doj) {
+        const d = new Date(m.doj);
+        if (!isNaN(d.getTime()) && d >= cutoff) items.push({ msno: m.msno, name: m.name, action: "Joined", date: m.doj, sort: d });
+      }
+      if (m.dateOfChange && (m.status === "REMOVED" || m.status === "DECEASED")) {
+        const d = new Date(m.dateOfChange);
+        if (!isNaN(d.getTime()) && d >= cutoff) items.push({ msno: m.msno, name: m.name, action: m.status === "DECEASED" ? "Deceased" : "Removed", date: m.dateOfChange, sort: d });
+      }
+    });
+    return items.sort((a,b) => b.sort - a.sort).slice(0, 6);
+  }, [members]);
+
+  const barColors = ["bg-blue-500","bg-indigo-500","bg-teal-500","bg-cyan-500","bg-violet-500","bg-sky-500","bg-blue-400","bg-indigo-400","bg-teal-400","bg-cyan-400"];
+
   const cards = [
-    { label:"Total Members", value:total, color:"bg-blue-600", icon:<Users size={22} className="text-white"/> },
-    { label:"Active", value:active, color:"bg-green-600", icon:<CheckCircle size={22} className="text-white"/> },
-    { label:"Removed / Deceased", value:removed + deceased, color:"bg-red-500", icon:<XCircle size={22} className="text-white"/> },
-    { label:"Pending Applications", value:onboarding.length, color:"bg-amber-500", icon:<Clock size={22} className="text-white"/>, click:() => nav("onboarding") },
-    { label:"Data Issues", value:issues.length, color: issues.length ? "bg-red-600" : "bg-green-600", icon:<AlertTriangle size={22} className="text-white"/>, click:() => nav("issues") },
-    { label:"Avg Age", value:avgAge, color:"bg-purple-600", icon:<BarChart3 size={22} className="text-white"/> },
+    { label:"Total Members", value:total, border:"border-l-blue-600", click:() => nav("members") },
+    { label:"Active", value:active, border:"border-l-green-600", click:() => nav("members") },
+    { label:"Removed / Deceased", value:removed + deceased, border:"border-l-red-500", click:() => nav("members") },
+    { label:"Pending Applications", value:onboarding.length, border:"border-l-amber-500", click:() => nav("onboarding") },
+    { label:"Data Issues", value:issues.length, border: issues.length ? "border-l-red-600" : "border-l-green-600", click:() => nav("issues") },
+    { label:"Avg Age", value:avgAge, border:"border-l-purple-600" },
   ];
 
   return (
     <div className="space-y-6">
+      {/* Row 1: Hero stat cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {cards.map(c => (
-          <button key={c.label} onClick={c.click} className={`bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex items-center gap-3 text-left hover:shadow-md transition ${c.click ? "cursor-pointer" : "cursor-default"}`}>
-            <div className={`${c.color} w-11 h-11 rounded-lg flex items-center justify-center flex-shrink-0`}>{c.icon}</div>
-            <div><div className="text-xl font-bold text-gray-900">{c.value}</div><div className="text-xs text-gray-500 leading-tight">{c.label}</div></div>
+          <button key={c.label} onClick={c.click} className={`bg-white rounded-xl shadow-sm border border-gray-100 border-l-4 ${c.border} p-4 text-left hover:shadow-md transition ${c.click ? "cursor-pointer" : "cursor-default"}`}>
+            <div className="text-2xl font-bold text-gray-900">{c.value}</div>
+            <div className="text-xs text-gray-500 leading-tight mt-1">{c.label}</div>
           </button>
         ))}
       </div>
 
-      <div className="grid md:grid-cols-3 gap-4">
-        <div className="md:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <h3 className="font-semibold text-gray-900 mb-3 text-sm">Active Members by Centre</h3>
+      {/* Row 2: Dues Overview + Upcoming Birthdays */}
+      <div className="grid md:grid-cols-2 gap-4">
+        {/* Membership Dues Overview */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <h3 className="font-semibold text-gray-900 mb-4 text-sm flex items-center gap-2"><ClipboardList size={16} className="text-blue-600"/>Membership Dues Overview</h3>
+          <div className="space-y-3">
+            <div>
+              <div className="flex justify-between text-xs mb-1"><span className="text-green-700 font-medium">Paid Up</span><span className="font-bold">{duesInfo.paidUp}</span></div>
+              <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden"><div className="bg-green-500 h-full rounded-full transition-all" style={{width:`${(duesInfo.paidUp/duesTotal)*100}%`}}/></div>
+            </div>
+            <div>
+              <div className="flex justify-between text-xs mb-1"><span className="text-amber-700 font-medium">Due for Renewal</span><span className="font-bold">{duesInfo.dueForRenewal}</span></div>
+              <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden"><div className="bg-amber-500 h-full rounded-full transition-all" style={{width:`${(duesInfo.dueForRenewal/duesTotal)*100}%`}}/></div>
+            </div>
+            <div>
+              <div className="flex justify-between text-xs mb-1"><span className="text-gray-500 font-medium">No Payment Info</span><span className="font-bold">{duesInfo.noInfo}</span></div>
+              <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden"><div className="bg-gray-400 h-full rounded-full transition-all" style={{width:`${(duesInfo.noInfo/duesTotal)*100}%`}}/></div>
+            </div>
+          </div>
+          <button onClick={() => nav("members")} className="text-xs text-blue-700 hover:underline mt-3 flex items-center gap-1">View Details <ChevronRight size={12}/></button>
+        </div>
+
+        {/* Upcoming Birthdays */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <h3 className="font-semibold text-gray-900 mb-4 text-sm flex items-center gap-2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-pink-500"><path d="M20 21v-2a4 4 0 0 0-3-3.87"/><path d="M4 21v-2a4 4 0 0 1 3-3.87"/><circle cx="12" cy="7" r="4"/></svg>Upcoming Birthdays</h3>
+          {birthdays.length === 0 ? <p className="text-gray-400 text-sm">No birthdays this month or next.</p> : (
+            <div className="space-y-2">
+              {birthdays.slice(0, 8).map((b, i) => (
+                <div key={i} className={`flex items-center justify-between py-1.5 px-2 rounded-lg text-sm ${b.isToday ? "bg-pink-50 border border-pink-200" : ""}`}>
+                  <button onClick={() => nav("member-detail", b.msno)} className="text-blue-700 hover:underline font-medium truncate max-w-[55%]">{b.name}</button>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500">{b.date}</span>
+                    <span className="text-xs font-semibold text-purple-700">turns {b.turnsAge}</span>
+                    {b.isToday && <span className="text-xs bg-pink-500 text-white px-1.5 py-0.5 rounded-full font-bold">TODAY</span>}
+                  </div>
+                </div>
+              ))}
+              {birthdays.length > 8 && <p className="text-xs text-gray-400 mt-1">and {birthdays.length - 8} more...</p>}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Row 3: Members by Centre + Recent Activity */}
+      <div className="grid md:grid-cols-2 gap-4">
+        {/* Members by Centre */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <h3 className="font-semibold text-gray-900 mb-3 text-sm flex items-center gap-2"><BarChart3 size={16} className="text-indigo-600"/>Active Members by Centre</h3>
           {topCentres.length === 0 ? <p className="text-gray-400 text-sm">No active members yet.</p> : (
             <div className="space-y-2">
-              {topCentres.map(([c, n]) => (
+              {topCentres.map(([c, n], idx) => (
                 <div key={c} className="flex items-center gap-3">
                   <span className="text-xs text-gray-600 w-24 truncate font-medium">{c}</span>
                   <div className="flex-1 bg-gray-100 rounded-full h-5 overflow-hidden">
-                    <div className="bg-blue-500 h-full rounded-full flex items-center justify-end pr-2 transition-all" style={{width:`${Math.max((n/maxC)*100,15)}%`}}>
+                    <div className={`${barColors[idx % barColors.length]} h-full rounded-full flex items-center justify-end pr-2 transition-all`} style={{width:`${Math.max((n/maxC)*100,15)}%`}}>
                       <span className="text-xs font-bold text-white">{n}</span>
                     </div>
                   </div>
+                  <span className="text-xs text-gray-400 w-10 text-right">{Math.round((n/totalActive)*100)}%</span>
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        <div className="space-y-4">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-            <h3 className="font-semibold text-gray-900 mb-3 text-sm">Blood Group Distribution</h3>
-            <div className="grid grid-cols-2 gap-2">
-              {BLOOD_GROUPS.map(bg => (
-                <div key={bg} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-1.5">
-                  <span className="text-sm font-bold text-red-700">{bg}</span>
-                  <span className="text-sm text-gray-600">{bloodCount[bg] || 0}</span>
+        {/* Recent Activity */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <h3 className="font-semibold text-gray-900 mb-3 text-sm flex items-center gap-2"><Clock size={16} className="text-amber-600"/>Recent Activity <span className="text-xs text-gray-400 font-normal">(last 90 days)</span></h3>
+          {recentActivity.length === 0 ? <p className="text-gray-400 text-sm">No recent activity.</p> : (
+            <div className="space-y-2">
+              {recentActivity.map((item, i) => (
+                <div key={i} className="flex items-center justify-between py-1.5 px-2 rounded-lg text-sm hover:bg-gray-50 transition">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${item.action === "Joined" ? "bg-green-500" : item.action === "Deceased" ? "bg-gray-500" : "bg-red-500"}`}/>
+                    <button onClick={() => nav("member-detail", item.msno)} className="text-blue-700 hover:underline font-medium truncate max-w-[180px]">{item.name}</button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${item.action === "Joined" ? "bg-green-100 text-green-800" : item.action === "Deceased" ? "bg-gray-100 text-gray-600" : "bg-red-100 text-red-800"}`}>{item.action}</span>
+                    <span className="text-xs text-gray-400">{item.date}</span>
+                  </div>
                 </div>
               ))}
             </div>
-          </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-2">
-            <h3 className="font-semibold text-gray-900 mb-2 text-sm">Quick Actions</h3>
-            <button onClick={() => nav("enroll")} className="w-full bg-blue-900 text-white px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-blue-800 transition"><UserPlus size={16}/>Enroll New Member</button>
-            <button onClick={() => nav("reports")} className="w-full bg-white border border-gray-300 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-gray-50 transition"><FileText size={16}/>Generate Form 6 / 7</button>
-          </div>
+          )}
+        </div>
+      </div>
+
+      {/* Row 4: Quick Actions */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <h3 className="font-semibold text-gray-900 mb-3 text-sm">Quick Actions</h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <button onClick={() => nav("enroll")} className="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-200 hover:shadow-md hover:border-blue-300 transition bg-white">
+            <UserPlus size={22} className="text-blue-600"/><span className="text-xs font-semibold text-gray-700 text-center">Enroll New Member</span>
+          </button>
+          <button onClick={() => nav("reports")} className="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-200 hover:shadow-md hover:border-blue-300 transition bg-white">
+            <FileText size={22} className="text-indigo-600"/><span className="text-xs font-semibold text-gray-700 text-center">Generate Reports</span>
+          </button>
+          <button onClick={() => nav("members")} className="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-200 hover:shadow-md hover:border-blue-300 transition bg-white">
+            <Users size={22} className="text-teal-600"/><span className="text-xs font-semibold text-gray-700 text-center">View All Members</span>
+          </button>
+          <button onClick={() => nav("issues")} className="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-200 hover:shadow-md hover:border-blue-300 transition bg-white">
+            <AlertTriangle size={22} className="text-amber-600"/><span className="text-xs font-semibold text-gray-700 text-center">Check Data Issues</span>
+          </button>
+          <button onClick={onExport} className="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-200 hover:shadow-md hover:border-blue-300 transition bg-white">
+            <Download size={22} className="text-green-600"/><span className="text-xs font-semibold text-gray-700 text-center">Export to Excel</span>
+          </button>
+          {useSheet && <button onClick={refreshFromSheet} className="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-200 hover:shadow-md hover:border-blue-300 transition bg-white">
+            <RefreshCw size={22} className="text-purple-600"/><span className="text-xs font-semibold text-gray-700 text-center">Refresh from Sheet</span>
+          </button>}
         </div>
       </div>
     </div>
@@ -1262,13 +1486,19 @@ function MemberList({ members, nav, refresh, zones }) {
   const [search, setSearch] = useState("");
   const [centreF, setCentreF] = useState("ALL");
   const [statusF, setStatusF] = useState("ALL");
+  const [page, setPage] = useState(1);
+  const PER_PAGE = 50;
+
+  useEffect(() => { setPage(1); }, [search, centreF, statusF]);
 
   const allCentres = [...new Set(members.map(m => m.centre).filter(Boolean))].sort();
   const filtered = members.filter(m => {
     const q = search.toLowerCase();
-    const ms = !q || m.name?.toLowerCase().includes(q) || m.pf?.toLowerCase().includes(q) || String(m.msno).includes(q) || m.mobile?.includes(q);
+    const ms = !q || String(m.name||"").toLowerCase().includes(q) || String(m.pf||"").toLowerCase().includes(q) || String(m.msno||"").includes(q) || String(m.mobile||"").includes(q) || String(m.centre||"").toLowerCase().includes(q) || String(m.email||"").toLowerCase().includes(q);
     return ms && (centreF === "ALL" || m.centre === centreF) && (statusF === "ALL" || m.status === statusF);
   });
+  const totalPages = Math.ceil(filtered.length / PER_PAGE);
+  const paged = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   const exportCSV = () => {
     const h = INPUT_FIELDS.map(f => f.label);
@@ -1281,8 +1511,8 @@ function MemberList({ members, nav, refresh, zones }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-        <div className="flex-1 flex gap-2 w-full sm:w-auto flex-wrap">
-          <div className="relative flex-1 min-w-48">
+        <div className="flex-1 flex gap-2 w-full sm:w-auto flex-wrap mobile-stack mobile-full">
+          <div className="relative flex-1 min-w-48 mobile-full">
             <Search size={16} className="absolute left-3 top-3 text-gray-400"/>
             <input type="text" placeholder="Search name, PF, M.S.NO, mobile…" value={search} onChange={e => setSearch(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"/>
           </div>
@@ -1302,15 +1532,15 @@ function MemberList({ members, nav, refresh, zones }) {
       <div className="text-xs text-gray-500">{filtered.length} member{filtered.length !== 1 ? "s":""}</div>
 
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto mobile-scroll">
+          <table className="w-full text-sm mobile-small">
             <thead><tr className="bg-blue-900 text-white">
               {["M.S.NO","Name","PF","Zone","Centre","Mobile","Age","Blood","Status",""].map(h => (
-                <th key={h} className="text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wide">{h}</th>
+                <th key={h} className={`text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wide ${(h==="Zone"||h==="Age"||h==="Blood")?"mobile-hide":""}`}>{h}</th>
               ))}
             </tr></thead>
             <tbody>
-              {filtered.map((m,i) => {
+              {paged.map((m,i) => {
                 const iss = getIssues(m, zones);
                 return (
                   <tr key={m.msno} className={`border-t hover:bg-blue-50 transition ${i%2 ? "bg-gray-50":"bg-white"}`}>
@@ -1319,11 +1549,11 @@ function MemberList({ members, nav, refresh, zones }) {
                       {iss.length > 0 && <AlertTriangle size={12} className="inline ml-1 text-amber-500"/>}
                     </td>
                     <td className="px-3 py-2.5 font-mono text-gray-600">{m.pf}</td>
-                    <td className="px-3 py-2.5 text-gray-600">{m.zone}</td>
+                    <td className="px-3 py-2.5 text-gray-600 mobile-hide">{m.zone}</td>
                     <td className="px-3 py-2.5 text-gray-600">{m.centre}</td>
-                    <td className="px-3 py-2.5 text-gray-600">{m.mobile}</td>
-                    <td className="px-3 py-2.5 text-gray-600">{getAge(m.dob) ?? "\u2014"}</td>
-                    <td className="px-3 py-2.5 font-bold text-red-700">{m.bloodGroup || "\u2014"}</td>
+                    <td className="px-3 py-2.5 text-gray-600">{m.mobile && <a href={`https://wa.me/91${String(m.mobile).replace(/\D/g,'').slice(-10)}`} target="_blank" rel="noopener" className="inline-flex items-center gap-1 hover:text-green-600 transition" title="WhatsApp">{m.mobile}<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="text-green-500 ml-1"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 0 0 .611.611l4.458-1.495A11.952 11.952 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.387 0-4.592-.836-6.318-2.228l-.143-.113-3.013 1.01 1.01-3.013-.113-.143A9.952 9.952 0 0 1 2 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg></a>}</td>
+                    <td className="px-3 py-2.5 text-gray-600 mobile-hide">{getAge(m.dob) ?? "\u2014"}</td>
+                    <td className="px-3 py-2.5 font-bold text-red-700 mobile-hide">{m.bloodGroup || "\u2014"}</td>
                     <td className="px-3 py-2.5">
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${m.status==="ACTIVE"?"bg-green-100 text-green-800":m.status==="REMOVED"?"bg-red-100 text-red-800":"bg-gray-100 text-gray-600"}`}>{m.status}</span>
                     </td>
@@ -1336,6 +1566,23 @@ function MemberList({ members, nav, refresh, zones }) {
           </table>
         </div>
       </div>
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-2">
+          <span className="text-xs text-gray-500">Page {page} of {totalPages}</span>
+          <div className="flex gap-1">
+            <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page===1} className="px-3 py-1.5 rounded-lg text-xs font-medium border bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition">Previous</button>
+            {Array.from({length: Math.min(totalPages, 7)}, (_, i) => {
+              let p;
+              if (totalPages <= 7) p = i + 1;
+              else if (page <= 4) p = i + 1;
+              else if (page >= totalPages - 3) p = totalPages - 6 + i;
+              else p = page - 3 + i;
+              return <button key={p} onClick={() => setPage(p)} className={`w-8 h-8 rounded-lg text-xs font-medium transition ${page === p ? "bg-blue-900 text-white" : "border bg-white hover:bg-gray-50"}`}>{p}</button>;
+            })}
+            <button onClick={() => setPage(p => Math.min(totalPages, p+1))} disabled={page===totalPages} className="px-3 py-1.5 rounded-lg text-xs font-medium border bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition">Next</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1379,6 +1626,7 @@ function MemberDetail({ msno, zones, refresh, nav }) {
                 <span className="text-blue-300 text-sm">PF <strong className="text-white">{member.pf}</strong></span>
                 {age && <span className="text-blue-300 text-sm">Age <strong className="text-white">{age}</strong></span>}
                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${member.status==="ACTIVE"?"bg-green-500 text-white":"bg-red-500 text-white"}`}>{member.status}</span>
+                {member.mobile && <a href={`https://wa.me/91${String(member.mobile).replace(/\D/g,'').slice(-10)}`} target="_blank" rel="noopener" className="text-green-400 hover:text-green-300 text-sm flex items-center gap-1"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 0 0 .611.611l4.458-1.495A11.952 11.952 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.387 0-4.592-.836-6.318-2.228l-.143-.113-3.013 1.01 1.01-3.013-.113-.143A9.952 9.952 0 0 1 2 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg>WhatsApp</a>}
               </div>
             </div>
           </div>
@@ -1546,6 +1794,8 @@ function SettingsView({ config, zones, refresh, members, onImport, onReset, onEx
   const [importMsg, setImportMsg] = useState("");
   const [importErr, setImportErr] = useState("");
   const [confirmReset, setConfirmReset] = useState(false);
+  const [newPw, setNewPw] = useState("");
+  const [pwSaved, setPwSaved] = useState(false);
   const fileRef = useRef(null);
 
   const saveConfig = () => { Object.assign(DB.config, cfg); refresh(); setSaved(true); setTimeout(() => setSaved(false), 2000); };
@@ -1593,6 +1843,7 @@ function SettingsView({ config, zones, refresh, members, onImport, onReset, onEx
         <button onClick={() => setTab("config")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab==="config"?"bg-blue-900 text-white":"bg-white border text-gray-700 hover:bg-gray-50"}`}>Association Config</button>
         <button onClick={() => setTab("zones")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab==="zones"?"bg-blue-900 text-white":"bg-white border text-gray-700 hover:bg-gray-50"}`}>Zone Rules</button>
         <button onClick={() => setTab("data")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab==="data"?"bg-blue-900 text-white":"bg-white border text-gray-700 hover:bg-gray-50"}`}><span className="flex items-center gap-1.5"><Database size={14}/>Data Management</span></button>
+        <button onClick={() => setTab("security")} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab==="security"?"bg-blue-900 text-white":"bg-white border text-gray-700 hover:bg-gray-50"}`}>Security</button>
       </div>
 
       {saved && <div className="bg-green-50 border border-green-300 text-green-800 px-4 py-2 rounded-lg text-sm flex items-center gap-2"><Check size={16}/>Saved successfully!</div>}
@@ -1705,6 +1956,18 @@ function SettingsView({ config, zones, refresh, members, onImport, onReset, onEx
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {tab === "security" && (
+        <div className="bg-white rounded-xl shadow-sm border p-6 space-y-4">
+          <h3 className="font-semibold text-gray-900">App Password</h3>
+          <p className="text-sm text-gray-500">Change the shared access password for the app. Current password: <code className="bg-gray-100 px-2 py-0.5 rounded text-blue-900 font-bold">{APP_PASSWORD}</code></p>
+          <p className="text-sm text-amber-600 flex items-center gap-2"><AlertTriangle size={14}/>Note: The password is set in the code. To change it permanently, edit the APP_PASSWORD value in index.html and re-upload to GitHub.</p>
+          <div className="flex gap-3 items-center">
+            <input type="text" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="New password" className="border rounded-lg px-3 py-2.5 text-sm w-64 focus:ring-2 focus:ring-blue-500 outline-none"/>
+          </div>
+          <p className="text-xs text-gray-400">Password is case-insensitive. Share it with authorized committee members only.</p>
         </div>
       )}
     </div>
