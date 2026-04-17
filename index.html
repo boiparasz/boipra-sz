@@ -970,13 +970,65 @@ function App() {
     refresh();
   };
 
-  // Handle import from Settings (merge or replace)
+  // Handle import from Settings (replace, merge, or monthly update)
   const handleSettingsImport = async (file, mode) => {
     try {
       const result = await importExcel(file);
       if (mode === "replace") {
         DB.members = result.members;
         DB.nextMSNO = result.maxMSNO + 1;
+      } else if (mode === "monthly") {
+        // Monthly Update: update existing members, send new ones to pending queue
+        const existingByMSNO = {};
+        DB.members.forEach(m => { existingByMSNO[String(m.msno)] = m; });
+        const existingPFs = new Set(DB.members.map(m => m.pf));
+        let updated = 0, queued = 0;
+        result.members.forEach(imported => {
+          const msnoKey = String(imported.msno);
+          const existing = existingByMSNO[msnoKey];
+          if (existing) {
+            // Update existing member fields (only overwrite non-empty imported values)
+            const updateFields = ["name","title","sowo","pf","category","centre","zone","address",
+              "mobile","familyContact","email","dob","doj","dor","branchRetired","branchPension",
+              "familyPensioner","bloodGroup"];
+            let changed = false;
+            updateFields.forEach(f => {
+              if (imported[f] && imported[f] !== existing[f]) {
+                existing[f] = imported[f];
+                changed = true;
+              }
+            });
+            if (changed) updated++;
+          } else if (!existingPFs.has(imported.pf) || !imported.pf) {
+            // New member — add to pending queue for manual approval
+            DB.onboarding.push({
+              appNo: DB.nextAppNo++,
+              dateReceived: new Date().toISOString().slice(0,10),
+              name: imported.name || "",
+              pf: imported.pf || "",
+              mobile: imported.mobile || "",
+              email: imported.email || "",
+              title: imported.title || "",
+              sowo: imported.sowo || "",
+              category: imported.category || "",
+              centre: imported.centre || "",
+              zone: imported.zone || "",
+              address: imported.address || "",
+              doj: imported.doj || "",
+              dob: imported.dob || "",
+              dor: imported.dor || "",
+              branchRetired: imported.branchRetired || "",
+              branchPension: imported.branchPension || "",
+              bloodGroup: imported.bloodGroup || "",
+              importedMSNO: imported.msno || "",
+              source: "monthly-import",
+              formReceived:"N", pfVerified:"N", paymentReceived:"N", enteredInInputs:"N"
+            });
+            queued++;
+          }
+        });
+        refresh();
+        return { updated, queued };
       } else {
         const existingPFs = new Set(DB.members.map(m => m.pf));
         let added = 0;
@@ -1106,6 +1158,7 @@ function App() {
         {view === "members" && <MemberList members={members} nav={nav} refresh={refresh} zones={zones}/>}
         {view === "member-detail" && <MemberDetail msno={selectedMSNO} zones={zones} refresh={refresh} nav={nav}/>}
         {view === "issues" && <IssuesView issues={issues} nav={nav}/>}
+        {view === "printform" && <PrintableApplicationForm config={config} onClose={() => nav("onboarding")}/>}
         {view === "reports" && <Reports members={members} config={config}/>}
         {view === "settings" && <SettingsView config={config} zones={zones} refresh={refresh} members={members} onImport={handleSettingsImport} onReset={handleReset} onExport={() => exportToExcel(DB.members, DB.config)} useSheet={useSheet} onPushToSheet={async () => { setSyncing(true); try { await sheetSaveAllMembers(DB.members); setSaveStatus("synced"); } catch(e) { setSyncError(e.message); } setSyncing(false); setTimeout(() => setSaveStatus(""), 3000); }} onRefreshFromSheet={refreshFromSheet}/>}
       </main>
@@ -1456,6 +1509,213 @@ function EnrollWizard({ zones, config, onDone }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
+   PRINTABLE MEMBERSHIP APPLICATION FORM (A4, Professional Blue/White)
+   ═══════════════════════════════════════════════════════════════════════════ */
+function PrintableApplicationForm({ config, onClose }) {
+  const handlePrint = () => { window.print(); };
+
+  return (
+    <div>
+      {/* Screen controls */}
+      <div className="no-print mb-4 flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-gray-900">Membership Application Form</h2>
+          <p className="text-sm text-gray-500">Print this blank form for hand-written applications.</p>
+        </div>
+        <div className="flex gap-3">
+          <button onClick={handlePrint} className="bg-blue-900 text-white px-5 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-blue-800 transition"><Printer size={16}/>Print Form</button>
+          <button onClick={onClose} className="bg-white border text-gray-600 px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition">Back</button>
+        </div>
+      </div>
+
+      {/* Printable form content */}
+      <div id="report-content" style={{fontFamily:"Calibri, 'Segoe UI', sans-serif", maxWidth:"210mm", margin:"0 auto", background:"white", padding:"0"}}>
+        <style dangerouslySetInnerHTML={{__html: `
+          @media print {
+            @page { size: A4 portrait; margin: 12mm 14mm 10mm 14mm; }
+            .no-print { display: none !important; }
+            body { margin: 0; background: white; }
+            main { padding: 0 !important; max-width: 100% !important; }
+            header, footer, nav { display: none !important; }
+            #report-content { padding: 0 !important; box-shadow: none !important; border: none !important; }
+            .pf-page { page-break-after: avoid; }
+          }
+          .pf-page { background: white; }
+          .pf-header { background: #1F3864; color: white; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+          .pf-header h1 { font-size: 16px; font-weight: 700; letter-spacing: 0.5px; margin: 0; }
+          .pf-header .pf-sub { font-size: 10px; opacity: 0.85; margin-top: 2px; }
+          .pf-header .pf-right { text-align: right; font-size: 9px; opacity: 0.75; }
+          .pf-header .pf-right .pf-reg { font-size: 11px; font-weight: 600; opacity: 1; }
+          .pf-accent { background: #D6E4F0; padding: 6px 24px; font-size: 10px; color: #1F3864; font-weight: 600; letter-spacing: 0.3px; border-bottom: 2px solid #1F3864; }
+          .pf-body { padding: 12px 24px 8px; }
+          .pf-section { margin-bottom: 10px; }
+          .pf-section-title { font-size: 10px; font-weight: 700; color: #1F3864; text-transform: uppercase; letter-spacing: 0.8px; padding-bottom: 3px; border-bottom: 1.5px solid #1F3864; margin-bottom: 8px; }
+          .pf-row { display: flex; gap: 12px; margin-bottom: 6px; }
+          .pf-field { flex: 1; }
+          .pf-field.w2 { flex: 2; }
+          .pf-field.w3 { flex: 3; }
+          .pf-field.w4 { flex: 4; }
+          .pf-label { font-size: 8px; font-weight: 600; color: #5B6770; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+          .pf-input { border-bottom: 1px solid #B0BEC5; min-height: 22px; font-size: 11px; padding: 2px 0; }
+          .pf-input.tall { min-height: 40px; }
+          .pf-checkbox-row { display: flex; gap: 16px; padding: 2px 0; }
+          .pf-checkbox { display: flex; align-items: center; gap: 4px; font-size: 10px; color: #333; }
+          .pf-box { width: 12px; height: 12px; border: 1.5px solid #1F3864; display: inline-block; }
+          .pf-info-box { background: #EFF4FB; border: 1px solid #C5D5E8; border-radius: 4px; padding: 8px 12px; margin-bottom: 10px; }
+          .pf-info-box p { font-size: 9px; color: #1F3864; margin: 1px 0; }
+          .pf-info-box .pf-info-title { font-size: 10px; font-weight: 700; margin-bottom: 3px; }
+          .pf-footer { border-top: 2px solid #1F3864; padding: 10px 24px; display: flex; justify-content: space-between; gap: 24px; }
+          .pf-sig-block { flex: 1; }
+          .pf-sig-label { font-size: 8px; text-transform: uppercase; color: #5B6770; letter-spacing: 0.5px; margin-bottom: 28px; }
+          .pf-sig-line { border-top: 1px solid #333; padding-top: 3px; font-size: 9px; color: #333; }
+          .pf-note { text-align: center; font-size: 8px; color: #999; padding: 6px 24px 4px; border-top: 1px solid #E8E8E8; }
+          .pf-photo-box { width: 80px; height: 90px; border: 1.5px solid #1F3864; display: flex; align-items: center; justify-content: center; font-size: 7px; color: #999; text-align: center; flex-shrink: 0; }
+        `}} />
+
+        <div className="pf-page">
+          {/* Header */}
+          <div className="pf-header">
+            <div>
+              <h1>{config.associationName || "BOIPRA"} — SOUTH ZONE</h1>
+              <div className="pf-sub">Bank of India Pensioners' &amp; Retirees' Association</div>
+            </div>
+            <div className="pf-right">
+              <div className="pf-reg">Reg. No. {config.regNo || "115/2017"}</div>
+              <div>{config.email || "boiparasz@gmail.com"}</div>
+            </div>
+          </div>
+
+          <div className="pf-accent">MEMBERSHIP APPLICATION FORM</div>
+
+          <div className="pf-body">
+            {/* Section 1: Personal Details */}
+            <div className="pf-section">
+              <div className="pf-section-title">1. Personal Details</div>
+              <div style={{display:"flex",gap:"16px"}}>
+                <div style={{flex:1}}>
+                  <div className="pf-row">
+                    <div className="pf-field"><div className="pf-label">Title</div>
+                      <div className="pf-checkbox-row">
+                        {["Mr.","Mrs.","Ms.","Dr."].map(t => <span key={t} className="pf-checkbox"><span className="pf-box"/> {t}</span>)}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="pf-row">
+                    <div className="pf-field w4"><div className="pf-label">Full Name (as per bank records)</div><div className="pf-input"/></div>
+                  </div>
+                  <div className="pf-row">
+                    <div className="pf-field w3"><div className="pf-label">Son / Wife / Daughter of</div><div className="pf-input"/></div>
+                    <div className="pf-field w2"><div className="pf-label">PF Number</div><div className="pf-input"/></div>
+                  </div>
+                  <div className="pf-row">
+                    <div className="pf-field"><div className="pf-label">Date of Birth</div><div className="pf-input"/></div>
+                    <div className="pf-field"><div className="pf-label">Blood Group</div><div className="pf-input"/></div>
+                    <div className="pf-field"><div className="pf-label">Category</div>
+                      <div className="pf-checkbox-row">
+                        {["Officer","Award Staff","Sub Staff"].map(c => <span key={c} className="pf-checkbox"><span className="pf-box"/> {c}</span>)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="pf-photo-box">Passport<br/>Photo<br/>(stamp size)</div>
+              </div>
+            </div>
+
+            {/* Section 2: Contact & Location */}
+            <div className="pf-section">
+              <div className="pf-section-title">2. Contact &amp; Location</div>
+              <div className="pf-row">
+                <div className="pf-field"><div className="pf-label">Mobile (WhatsApp)</div><div className="pf-input"/></div>
+                <div className="pf-field"><div className="pf-label">Alternate Contact</div><div className="pf-input"/></div>
+                <div className="pf-field w2"><div className="pf-label">Email Address</div><div className="pf-input"/></div>
+              </div>
+              <div className="pf-row">
+                <div className="pf-field w4"><div className="pf-label">Full Address (House/Flat No., Street, Area, City, State, PIN)</div><div className="pf-input tall"/></div>
+              </div>
+              <div className="pf-row">
+                <div className="pf-field"><div className="pf-label">Zone</div>
+                  <div className="pf-input" style={{fontSize:"8px",color:"#999",lineHeight:"1.3"}}>Chennai / Madurai / Coimbatore / Trichy / Salem / Erode / Tirunelveli / Nagercoil / Vellore / Pondicherry / Thanjavur</div>
+                </div>
+                <div className="pf-field"><div className="pf-label">Centre / City</div><div className="pf-input"/></div>
+              </div>
+            </div>
+
+            {/* Section 3: Service Details */}
+            <div className="pf-section">
+              <div className="pf-section-title">3. Service Details</div>
+              <div className="pf-row">
+                <div className="pf-field"><div className="pf-label">Date of Retirement</div><div className="pf-input"/></div>
+                <div className="pf-field w2"><div className="pf-label">Branch Retired From</div><div className="pf-input"/></div>
+                <div className="pf-field w2"><div className="pf-label">Branch Where Pension is Drawn</div><div className="pf-input"/></div>
+              </div>
+              <div className="pf-row">
+                <div className="pf-field w2"><div className="pf-label">Family Pensioner Name (Nominee)</div><div className="pf-input"/></div>
+                <div className="pf-field"><div className="pf-label">Family Contact No.</div><div className="pf-input"/></div>
+              </div>
+            </div>
+
+            {/* Section 4: Payment */}
+            <div className="pf-section">
+              <div className="pf-section-title">4. Payment Details</div>
+              <div className="pf-info-box">
+                <p className="pf-info-title">Membership Fees</p>
+                <p>Admission Fee: <strong>Rs. {config.admissionFee || 100}</strong> (one-time) &nbsp;|&nbsp; Annual Subscription: <strong>Rs. {config.annualSub || 750}</strong> &nbsp;|&nbsp; 2-Year: <strong>Rs. {config.twoYearSub || 1500}</strong></p>
+                <p style={{marginTop:"3px"}}>Bank Details — A/c Name: <strong>{config.bankAccountName || "BOIPARA SZ"}</strong> &nbsp;|&nbsp; A/c No: <strong>{config.bankAccountNo || "800210110005740"}</strong> &nbsp;|&nbsp; Bank: <strong>{config.bankName || "Bank of India"}</strong></p>
+              </div>
+              <div className="pf-row">
+                <div className="pf-field"><div className="pf-label">Payment Mode</div>
+                  <div className="pf-checkbox-row">
+                    {["Cheque","NEFT","UPI","Cash"].map(m => <span key={m} className="pf-checkbox"><span className="pf-box"/> {m}</span>)}
+                  </div>
+                </div>
+                <div className="pf-field"><div className="pf-label">Amount Paid (Rs.)</div><div className="pf-input"/></div>
+                <div className="pf-field w2"><div className="pf-label">Payment Ref / UTR / Cheque No.</div><div className="pf-input"/></div>
+              </div>
+              <div className="pf-row">
+                <div className="pf-field w4"><div className="pf-label">Additional Notes / Remarks</div><div className="pf-input tall"/></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Declaration + Signatures */}
+          <div style={{padding:"4px 24px 6px",fontSize:"9px",color:"#333"}}>
+            <strong>Declaration:</strong> I hereby apply for membership of {config.shortName || "BOIPRA-SZ"} and agree to abide by the rules and regulations of the Association. I certify that the above information is true and correct.
+          </div>
+
+          <div className="pf-footer">
+            <div className="pf-sig-block">
+              <div className="pf-sig-label">Date</div>
+              <div className="pf-sig-line">Date: _______________</div>
+            </div>
+            <div className="pf-sig-block">
+              <div className="pf-sig-label">Applicant's Signature</div>
+              <div className="pf-sig-line">Signature of Applicant</div>
+            </div>
+            <div className="pf-sig-block">
+              <div className="pf-sig-label">For Office Use Only</div>
+              <div className="pf-sig-line">Verified by: _______________</div>
+            </div>
+          </div>
+
+          {/* Office use section */}
+          <div style={{padding:"4px 24px 8px",borderTop:"1px solid #E8E8E8"}}>
+            <div style={{fontSize:"8px",fontWeight:700,color:"#1F3864",textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:"4px"}}>For Office Use Only</div>
+            <div className="pf-row">
+              <div className="pf-field"><div className="pf-label">M.S. No. Allotted</div><div className="pf-input"/></div>
+              <div className="pf-field"><div className="pf-label">Date of Admission</div><div className="pf-input"/></div>
+              <div className="pf-field"><div className="pf-label">Entered by</div><div className="pf-input"/></div>
+              <div className="pf-field"><div className="pf-label">Approved by</div><div className="pf-input"/></div>
+            </div>
+          </div>
+
+          <div className="pf-note">{config.associationName || "BOIPRA"} — South Zone &nbsp;|&nbsp; Reg. No. {config.regNo || "115/2017"} &nbsp;|&nbsp; {config.email || "boiparasz@gmail.com"}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
    ONBOARDING QUEUE
    ═══════════════════════════════════════════════════════════════════════════ */
 function OnboardingQueue({ onboarding, applications = [], refresh, nav, zones, config, onApproveApp, onRejectApp }) {
@@ -1470,14 +1730,27 @@ function OnboardingQueue({ onboarding, applications = [], refresh, nav, zones, c
     DB.onboarding[idx][field] = cur === "Y" ? "N" : "Y";
     const o = DB.onboarding[idx];
     if (o.formReceived === "Y" && o.pfVerified === "Y" && o.paymentReceived === "Y" && o.enteredInInputs === "Y") {
+      const isImported = o.source === "monthly-import";
       DB.members.push({
-        msno: DB.nextMSNO++, title:"Mr.", name: o.name, sowo:"", pf: o.pf, status:"ACTIVE",
-        zone: zones[0]?.zone || "", centre: zones[0]?.zone || "", mobile: o.mobile, email: o.email,
-        address:"", dob:"", doj: new Date().toISOString().slice(0,10), reasonForChange:"", dateOfChange:"",
-        category:"OFF", dor:"", branchRetired:"", branchPension:"", familyPensioner:"", familyContact:"",
-        bloodGroup:"", applicationDate: o.dateReceived, admissionFeePaid:"Y", subscriptionYears:1,
-        paymentMode:"", paymentRef:"", amountPaid: config.admissionFee + config.annualSub, notes:"Added via onboarding queue"
+        msno: isImported && o.importedMSNO ? Number(o.importedMSNO) : DB.nextMSNO++,
+        title: o.title || "Mr.", name: o.name, sowo: o.sowo || "", pf: o.pf, status:"ACTIVE",
+        zone: o.zone || zones[0]?.zone || "", centre: o.centre || zones[0]?.zone || "",
+        mobile: o.mobile, email: o.email,
+        address: o.address || "", dob: o.dob || "",
+        doj: o.doj || new Date().toISOString().slice(0,10), reasonForChange:"", dateOfChange:"",
+        category: o.category || "OFF", dor: o.dor || "",
+        branchRetired: o.branchRetired || "", branchPension: o.branchPension || "",
+        familyPensioner: o.familyPensioner || "", familyContact:"",
+        bloodGroup: o.bloodGroup || "", applicationDate: o.dateReceived,
+        admissionFeePaid: isImported ? "" : "Y", subscriptionYears: isImported ? 0 : 1,
+        paymentMode:"", paymentRef:"",
+        amountPaid: isImported ? 0 : config.admissionFee + config.annualSub,
+        notes: isImported ? "Added via monthly import" : "Added via onboarding queue"
       });
+      // Update nextMSNO if the imported MS.NO is higher
+      if (isImported && o.importedMSNO && Number(o.importedMSNO) >= DB.nextMSNO) {
+        DB.nextMSNO = Number(o.importedMSNO) + 1;
+      }
       DB.onboarding.splice(idx, 1);
     }
     refresh();
@@ -1526,7 +1799,10 @@ function OnboardingQueue({ onboarding, applications = [], refresh, nav, zones, c
           <h2 className="text-lg font-bold text-gray-900">Pending Applications</h2>
           <p className="text-sm text-gray-500">Review online applications and manage manual entries.</p>
         </div>
-        <button onClick={() => setShowAdd(!showAdd)} className="bg-blue-900 text-white px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-blue-800 transition"><Plus size={16}/>Log Manual</button>
+        <div className="flex gap-2">
+          <button onClick={() => nav("printform")} className="bg-white border border-blue-300 text-blue-900 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-blue-50 transition"><Printer size={16}/>Print Blank Form</button>
+          <button onClick={() => setShowAdd(!showAdd)} className="bg-blue-900 text-white px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-blue-800 transition"><Plus size={16}/>Log Manual</button>
+        </div>
       </div>
 
       {/* Tabs for Online vs Manual */}
@@ -1633,14 +1909,18 @@ function OnboardingQueue({ onboarding, applications = [], refresh, nav, zones, c
           <div className="space-y-3">
             {onboarding.map((o, idx) => {
               const done = ticks.filter(t => o[t] === "Y").length;
+              const isImported = o.source === "monthly-import";
               return (
-                <div key={idx} className="bg-white rounded-xl shadow-sm border p-4">
+                <div key={idx} className={`bg-white rounded-xl shadow-sm border p-4 ${isImported ? "border-l-4 border-l-purple-400" : ""}`}>
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center text-amber-800 font-bold text-sm">{o.name?.charAt(0)}</div>
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${isImported ? "bg-purple-100 text-purple-800" : "bg-amber-100 text-amber-800"}`}>{o.name?.charAt(0) || "?"}</div>
                       <div>
-                        <div className="font-semibold text-gray-900">{o.name} <span className="text-gray-400 font-normal text-xs">#{o.appNo}</span></div>
-                        <div className="text-xs text-gray-500">PF: {o.pf} · {o.mobile} · Received: {o.dateReceived}</div>
+                        <div className="font-semibold text-gray-900">{o.name || "(No name)"} <span className="text-gray-400 font-normal text-xs">#{o.appNo}</span>
+                          {isImported && <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">From Monthly Import</span>}
+                          {isImported && o.importedMSNO && <span className="ml-1 text-xs text-gray-400">MS.NO: {o.importedMSNO}</span>}
+                        </div>
+                        <div className="text-xs text-gray-500">PF: {o.pf || "—"} · {o.mobile || "—"} · Received: {o.dateReceived}</div>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -1649,6 +1929,14 @@ function OnboardingQueue({ onboarding, applications = [], refresh, nav, zones, c
                       <button onClick={() => removeApp(idx)} className="text-gray-300 hover:text-red-500 transition"><Trash2 size={16}/></button>
                     </div>
                   </div>
+                  {/* Show imported details if from monthly import */}
+                  {isImported && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 mb-3 bg-purple-50 rounded-lg p-3 text-xs">
+                      {[["S/o W/o",o.sowo],["Centre",o.centre],["Zone",o.zone],["Address",o.address],["DOJ",o.doj],["Category",o.category],["Email",o.email],["DOB",o.dob]].map(([label,val]) =>
+                        val ? <div key={label}><span className="text-gray-400 uppercase">{label}:</span> <span className="text-gray-700 font-medium">{val}</span></div> : null
+                      )}
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                     {ticks.map(t => (
                       <button key={t} onClick={() => toggle(idx, t)}
@@ -2252,8 +2540,16 @@ function SettingsView({ config, zones, refresh, members, onImport, onReset, onEx
     if (!file) return;
     setImportMsg(""); setImportErr("");
     try {
-      const count = await onImport(file, mode);
-      setImportMsg(`Successfully ${mode === "replace" ? "replaced with" : "merged"} ${count} members.`);
+      const result = await onImport(file, mode);
+      if (mode === "monthly" && typeof result === "object") {
+        const parts = [];
+        if (result.updated > 0) parts.push(`${result.updated} existing members updated`);
+        if (result.queued > 0) parts.push(`${result.queued} new members sent to Pending Queue for approval`);
+        if (parts.length === 0) parts.push("No changes detected");
+        setImportMsg(parts.join(". ") + ".");
+      } else {
+        setImportMsg(`Successfully ${mode === "replace" ? "replaced with" : "merged"} ${result} members.`);
+      }
       refresh();
     } catch (err) {
       setImportErr(typeof err === "string" ? err : "Import failed. Check the file format.");
@@ -2369,13 +2665,21 @@ function SettingsView({ config, zones, refresh, members, onImport, onReset, onEx
             <button onClick={onExport} className="bg-green-600 text-white px-5 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-green-700 transition"><Download size={16}/>Export to Excel (.xlsx)</button>
           </div>
 
-          {/* Import */}
-          <div className="bg-white rounded-xl shadow-sm border p-6">
-            <h3 className="font-semibold text-gray-900 mb-2">Import Data</h3>
-            <p className="text-sm text-gray-500 mb-3">Import members from the Master Excel file (.xlsx). Reads the INPUTS sheet and maps columns automatically.</p>
+          {/* Monthly Update (recommended) */}
+          <div className="bg-white rounded-xl shadow-sm border border-green-200 p-6">
+            <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2"><Upload size={18} className="text-green-600"/>Monthly Update <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Recommended</span></h3>
+            <p className="text-sm text-gray-500 mb-3">Upload the latest monthly master list. Existing members will be updated with new data (name corrections, S/o W/o, address, etc.). Any new members will go to the <strong>Pending Queue</strong> for your review and approval before being added.</p>
             {importMsg && <div className="bg-green-50 border border-green-300 text-green-800 px-4 py-2 rounded-lg text-sm mb-3 flex items-center gap-2"><CheckCircle size={16}/>{importMsg}</div>}
             {importErr && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm mb-3 flex items-center gap-2"><AlertCircle size={16}/>{importErr}</div>}
             <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden"/>
+            <button onClick={() => { fileRef.current.onchange = (e) => handleFileImport(e, "monthly"); fileRef.current.click(); }}
+              className="bg-green-600 text-white px-5 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-green-700 transition"><Upload size={16}/>Upload Monthly Master List</button>
+          </div>
+
+          {/* Import (advanced) */}
+          <div className="bg-white rounded-xl shadow-sm border p-6">
+            <h3 className="font-semibold text-gray-900 mb-2">Import Data (Advanced)</h3>
+            <p className="text-sm text-gray-500 mb-3">Replace or merge members from a Master Excel file. Use these only for initial setup or bulk operations.</p>
             <div className="flex gap-3">
               <button onClick={() => { fileRef.current.onchange = (e) => handleFileImport(e, "replace"); fileRef.current.click(); }}
                 className="bg-blue-900 text-white px-5 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 hover:bg-blue-800 transition"><Upload size={16}/>Replace All Data</button>
