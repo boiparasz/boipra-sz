@@ -1059,8 +1059,8 @@ function App() {
                   {t.id === "issues" && issues.length > 0 && (
                     <span className="badge bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">{issues.length}</span>
                   )}
-                  {t.id === "onboarding" && onboarding.length > 0 && (
-                    <span className="badge bg-amber-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">{onboarding.length}</span>
+                  {t.id === "onboarding" && (onboarding.length + applications.length) > 0 && (
+                    <span className="badge bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">{onboarding.length + applications.length}</span>
                   )}
                 </button>
               ))}
@@ -1717,25 +1717,27 @@ function MemberList({ members, nav, refresh, zones }) {
         <div className="overflow-x-auto mobile-scroll">
           <table className="w-full text-sm mobile-small">
             <thead><tr className="bg-blue-900 text-white">
-              {["M.S.NO","Name","PF","Zone","Centre","Mobile","Age","Blood","Status",""].map(h => (
-                <th key={h} className={`text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wide ${(h==="Zone"||h==="Age"||h==="Blood")?"mobile-hide":""}`}>{h}</th>
+              {["S.No","M.S.NO","Name","S/o W/o","PF","Zone","Centre","Mobile","Age","Status",""].map(h => (
+                <th key={h} className={`text-left px-3 py-2.5 font-semibold text-xs uppercase tracking-wide ${(h==="Zone"||h==="Age"||h==="S/o W/o")?"mobile-hide":""}`}>{h}</th>
               ))}
             </tr></thead>
             <tbody>
               {paged.map((m,i) => {
                 const iss = getIssues(m, zones);
+                const sno = (page - 1) * PER_PAGE + i + 1;
                 return (
                   <tr key={m.msno} className={`border-t hover:bg-blue-50 transition ${i%2 ? "bg-gray-50":"bg-white"}`}>
+                    <td className="px-3 py-2.5 text-gray-500 text-xs">{sno}</td>
                     <td className="px-3 py-2.5 font-mono font-bold text-blue-900">{m.msno}</td>
                     <td className="px-3 py-2.5"><button onClick={() => nav("member-detail", m.msno)} className="text-blue-700 hover:underline font-medium">{m.name}</button>
                       {iss.length > 0 && <AlertTriangle size={12} className="inline ml-1 text-amber-500"/>}
                     </td>
+                    <td className="px-3 py-2.5 text-gray-600 mobile-hide">{m.sowo}</td>
                     <td className="px-3 py-2.5 font-mono text-gray-600">{m.pf}</td>
                     <td className="px-3 py-2.5 text-gray-600 mobile-hide">{m.zone}</td>
                     <td className="px-3 py-2.5 text-gray-600">{m.centre}</td>
                     <td className="px-3 py-2.5 text-gray-600">{m.mobile && <a href={`https://wa.me/91${String(m.mobile).replace(/\D/g,'').slice(-10)}`} target="_blank" rel="noopener" className="inline-flex items-center gap-1 hover:text-green-600 transition" title="WhatsApp">{m.mobile}<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="text-green-500 ml-1"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 0 0 .611.611l4.458-1.495A11.952 11.952 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.387 0-4.592-.836-6.318-2.228l-.143-.113-3.013 1.01 1.01-3.013-.113-.143A9.952 9.952 0 0 1 2 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg></a>}</td>
                     <td className="px-3 py-2.5 text-gray-600 mobile-hide">{getAge(m.dob) ?? "\u2014"}</td>
-                    <td className="px-3 py-2.5 font-bold text-red-700 mobile-hide">{m.bloodGroup || "\u2014"}</td>
                     <td className="px-3 py-2.5">
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${m.status==="ACTIVE"?"bg-green-100 text-green-800":m.status==="REMOVED"?"bg-red-100 text-red-800":"bg-gray-100 text-gray-600"}`}>{m.status}</span>
                     </td>
@@ -1743,7 +1745,7 @@ function MemberList({ members, nav, refresh, zones }) {
                   </tr>
                 );
               })}
-              {filtered.length === 0 && <tr><td colSpan={10} className="px-4 py-12 text-center text-gray-400">No members found.</td></tr>}
+              {filtered.length === 0 && <tr><td colSpan={11} className="px-4 py-12 text-center text-gray-400">No members found.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -1915,8 +1917,8 @@ function Reports({ members, config }) {
         <div><h2 className="text-lg font-bold text-gray-900">Statutory Reports</h2><p className="text-sm text-gray-500">Form 6 (member list) and Form 7 (changes) for Registrar of Societies.</p></div>
       </div>
 
-      <div className="flex gap-2 no-print">
-        {[["form6","Form 6 — Member List"],["form7new","Form 7 — New Members"],["form7del","Form 7 — Removed Members"]].map(([id,label]) => (
+      <div className="flex gap-2 flex-wrap no-print">
+        {[["form6","Form 6 — Member List"],["form7new","Form 7 — New Members"],["form7del","Form 7 — Removed Members"],["masterlist","Master List — Full Details"]].map(([id,label]) => (
           <button key={id} onClick={() => setTab(id)} className={`px-4 py-2 rounded-lg text-sm font-medium transition ${tab === id ? "bg-blue-900 text-white" : "bg-white border text-gray-700 hover:bg-gray-50"}`}>{label}</button>
         ))}
       </div>
@@ -1931,34 +1933,87 @@ function Reports({ members, config }) {
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b no-print">
           <span className="text-sm font-medium text-gray-700">
-            {tab === "form6" ? `${active.length} active members` : tab === "form7new" ? `${newSince.length} new members since ${sinceDate}` : `${delSince.length} removed since ${sinceDate}`}
+            {tab === "form6" ? `${active.length} active members` : tab === "form7new" ? `${newSince.length} new members since ${sinceDate}` : tab === "form7del" ? `${delSince.length} removed since ${sinceDate}` : `${active.length} active members — full details`}
           </span>
           <button onClick={handlePrint} className="flex items-center gap-2 text-sm text-blue-900 font-medium hover:underline"><Printer size={14}/>Print</button>
         </div>
 
         <div id="report-content" className="p-4 overflow-x-auto">
           <h2 style={{color:"#1F3864"}}>{config.associationName} — South Zone</h2>
-          <h3 style={{color:"#666",fontSize:"13px"}}>{tab === "form6" ? "FORM 6 — List of Members" : tab === "form7new" ? "FORM 7 — New Members Added" : "FORM 7 — Members Removed"}</h3>
+          <h3 style={{color:"#666",fontSize:"13px"}}>{tab === "form6" ? "FORM 6 — List of Members (Register of Societies Act)" : tab === "form7new" ? "FORM 7 — New Members Added" : tab === "form7del" ? "FORM 7 — Members Removed" : "MASTER LIST — Complete Member Details"}</h3>
           <p style={{fontSize:"11px",color:"#999"}}>Reg. No. {config.regNo} · Generated: {new Date().toISOString().slice(0,10)}</p>
 
-          <table className="w-full text-xs mt-3" style={{borderCollapse:"collapse"}}>
-            <thead><tr className="bg-blue-900 text-white">
-              {tab === "form6"
-                ? ["S.No","M.S.NO","Name","S/o W/o D/o","PF","Address","DOJ","Zone"].map(h => <th key={h} className="px-2 py-2 text-left font-semibold border border-blue-800">{h}</th>)
-                : ["S.No","M.S.NO","Name","PF","DOJ","Centre",tab==="form7del"?"Reason":"Zone"].map(h => <th key={h} className="px-2 py-2 text-left font-semibold border border-blue-800">{h}</th>)
-              }
-            </tr></thead>
-            <tbody>
-              {(tab === "form6" ? active : tab === "form7new" ? newSince : delSince).map((m,i) => (
-                <tr key={m.msno} className={i%2 ? "bg-gray-50":""}>
-                  {tab === "form6"
-                    ? [i+1,m.msno,m.name,m.sowo,m.pf,m.address,m.doj,m.zone].map((v,j) => <td key={j} className="px-2 py-1.5 border border-gray-300">{v}</td>)
-                    : [i+1,m.msno,m.name,m.pf,m.doj,m.centre,tab==="form7del"?m.reasonForChange:m.zone].map((v,j) => <td key={j} className="px-2 py-1.5 border border-gray-300">{v}</td>)
-                  }
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {/* FORM 6 — Official Registrar Format */}
+          {tab === "form6" && (
+            <table className="w-full text-xs mt-3" style={{borderCollapse:"collapse"}}>
+              <thead><tr className="bg-blue-900 text-white">
+                {["S.No","M.S.NO","Name","S/o W/o D/o","PF No.","Category","Address","Mobile","Zone","Centre","DOJ","Email"].map(h => <th key={h} className="px-2 py-2 text-left font-semibold border border-blue-800" style={{whiteSpace:"nowrap"}}>{h}</th>)}
+              </tr></thead>
+              <tbody>
+                {active.map((m,i) => (
+                  <tr key={m.msno} className={i%2 ? "bg-gray-50":""}>
+                    {[i+1, m.msno, m.name, m.sowo, m.pf, m.category, m.address, m.mobile, m.zone, m.centre, m.doj, m.email].map((v,j) =>
+                      <td key={j} className="px-2 py-1.5 border border-gray-300">{v}</td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
+          {/* FORM 7 — New Members */}
+          {tab === "form7new" && (
+            <table className="w-full text-xs mt-3" style={{borderCollapse:"collapse"}}>
+              <thead><tr className="bg-blue-900 text-white">
+                {["S.No","M.S.NO","Name","S/o W/o D/o","PF No.","Category","Address","Mobile","Zone","Centre","DOJ","Email"].map(h => <th key={h} className="px-2 py-2 text-left font-semibold border border-blue-800" style={{whiteSpace:"nowrap"}}>{h}</th>)}
+              </tr></thead>
+              <tbody>
+                {newSince.map((m,i) => (
+                  <tr key={m.msno} className={i%2 ? "bg-gray-50":""}>
+                    {[i+1, m.msno, m.name, m.sowo, m.pf, m.category, m.address, m.mobile, m.zone, m.centre, m.doj, m.email].map((v,j) =>
+                      <td key={j} className="px-2 py-1.5 border border-gray-300">{v}</td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
+          {/* FORM 7 — Removed Members */}
+          {tab === "form7del" && (
+            <table className="w-full text-xs mt-3" style={{borderCollapse:"collapse"}}>
+              <thead><tr className="bg-blue-900 text-white">
+                {["S.No","M.S.NO","Name","S/o W/o D/o","PF No.","Category","Centre","Zone","Date of Change","Reason","DOJ"].map(h => <th key={h} className="px-2 py-2 text-left font-semibold border border-blue-800" style={{whiteSpace:"nowrap"}}>{h}</th>)}
+              </tr></thead>
+              <tbody>
+                {delSince.map((m,i) => (
+                  <tr key={m.msno} className={i%2 ? "bg-gray-50":""}>
+                    {[i+1, m.msno, m.name, m.sowo, m.pf, m.category, m.centre, m.zone, m.dateOfChange, m.reasonForChange, m.doj].map((v,j) =>
+                      <td key={j} className="px-2 py-1.5 border border-gray-300">{v}</td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
+          {/* MASTER LIST — All Details */}
+          {tab === "masterlist" && (
+            <table className="w-full text-xs mt-3" style={{borderCollapse:"collapse"}}>
+              <thead><tr className="bg-blue-900 text-white">
+                {["S.No","M.S.NO","Title","Name","S/o W/o D/o","PF No.","Category","Centre","Zone","Address","Mobile","Alt. Contact","Email","DOB","DOJ","Date of Retirement","Branch Retired","Branch Pension","Family Pensioner","Family Contact","Blood Group","Status"].map(h => <th key={h} className="px-2 py-2 text-left font-semibold border border-blue-800" style={{whiteSpace:"nowrap",fontSize:"9px"}}>{h}</th>)}
+              </tr></thead>
+              <tbody>
+                {active.map((m,i) => (
+                  <tr key={m.msno} className={i%2 ? "bg-gray-50":""}>
+                    {[i+1, m.msno, m.title, m.name, m.sowo, m.pf, m.category, m.centre, m.zone, m.address, m.mobile, m.familyContact, m.email, m.dob, m.doj, m.dor, m.branchRetired, m.branchPension, m.familyPensioner, m.familyContact, m.bloodGroup, m.status].map((v,j) =>
+                      <td key={j} className="px-2 py-1.5 border border-gray-300">{v}</td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>
