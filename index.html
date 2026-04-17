@@ -160,8 +160,9 @@ async function idbClear() {
    GOOGLE SHEETS SYNC — read/write via Apps Script Web App
    ═══════════════════════════════════════════════════════════════════════════ */
 const SCRIPT_URL_KEY = "boipra_script_url";
+const DEFAULT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbywJR1RMHy8frKh_y2YNtB1HbeHqdHaOSAJv8mD8QKig0b_w62Dt9QAt9kbl94w9bi4/exec";
 
-function getScriptUrl() { return localStorage.getItem(SCRIPT_URL_KEY) || ""; }
+function getScriptUrl() { return localStorage.getItem(SCRIPT_URL_KEY) || DEFAULT_SCRIPT_URL; }
 function setScriptUrl(url) { localStorage.setItem(SCRIPT_URL_KEY, url); }
 function clearScriptUrl() { localStorage.removeItem(SCRIPT_URL_KEY); }
 
@@ -689,18 +690,23 @@ function App() {
       try {
         const url = getScriptUrl();
         if (url) {
-          // Try loading from Google Sheet
+          // Try loading from Google Sheet (always succeeds if URL is hardcoded)
           try {
             const sheetMembers = await sheetFetchMembers();
             DB.members = sheetMembers;
             DB.nextMSNO = sheetMembers.length > 0 ? Math.max(...sheetMembers.map(m => m.msno)) + 1 : 1001;
             setMembers([...DB.members]);
             setUseSheet(true);
-            setHasData(true);
+            setHasData(true); // Always show app when sheet is connected, even if 0 members
             setLoading(false);
             return;
           } catch (e) {
             console.warn("Sheet load failed, trying local:", e);
+            // If default URL is set, still show the app (offline mode)
+            if (getScriptUrl() === DEFAULT_SCRIPT_URL) {
+              setUseSheet(true);
+              setHasData(true);
+            }
           }
         }
         // Fall back to IndexedDB
