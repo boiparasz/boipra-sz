@@ -1226,45 +1226,45 @@ function useCountUp(target, duration = 1200) {
 }
 
 /* ── SVG Donut Chart ── */
-function DonutChart({ data, size = 200 }) {
+function DonutChart({ data, size = 220 }) {
   const total = data.reduce((s, d) => s + d.value, 0) || 1;
-  const cx = size / 2, cy = size / 2, r = size * 0.35, strokeW = size * 0.18;
+  const cx = size / 2, cy = size / 2, r = size * 0.34, strokeW = size * 0.17;
   let cumAngle = -90;
   const slices = data.map((d, i) => {
     const angle = (d.value / total) * 360;
     const startAngle = cumAngle;
+    const midAngle = cumAngle + angle / 2;
     cumAngle += angle;
     const startRad = (startAngle * Math.PI) / 180;
     const endRad = ((startAngle + angle) * Math.PI) / 180;
+    const midRad = (midAngle * Math.PI) / 180;
     const x1 = cx + r * Math.cos(startRad), y1 = cy + r * Math.sin(startRad);
     const x2 = cx + r * Math.cos(endRad), y2 = cy + r * Math.sin(endRad);
     const largeArc = angle > 180 ? 1 : 0;
     const path = `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`;
-    return { ...d, path, pct: Math.round((d.value / total) * 100) };
+    const tooltipX = cx + (r * 0.0) * Math.cos(midRad);
+    const tooltipY = cy + (r * 0.0) * Math.sin(midRad);
+    return { ...d, path, pct: Math.round((d.value / total) * 100), midRad, tooltipX: cx + r * Math.cos(midRad), tooltipY: cy + r * Math.sin(midRad) };
   });
   const [hover, setHover] = useState(null);
+  const hovered = hover !== null ? slices[hover] : null;
   return (
-    <div className="flex items-center gap-4">
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+    <div className="flex justify-center">
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="overflow-visible">
         {slices.map((s, i) => (
-          <path key={i} d={s.path} fill="none" stroke={s.color} strokeWidth={hover === i ? strokeW + 4 : strokeW}
-            strokeLinecap="round" style={{transition:"stroke-width 0.2s", cursor:"pointer", opacity: hover !== null && hover !== i ? 0.5 : 1}}
+          <path key={i} d={s.path} fill="none" stroke={s.color} strokeWidth={hover === i ? strokeW + 6 : strokeW}
+            strokeLinecap="round" style={{transition:"all 0.2s", cursor:"pointer", opacity: hover !== null && hover !== i ? 0.4 : 1}}
             onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}/>
         ))}
-        <text x={cx} y={cy - 6} textAnchor="middle" className="text-2xl font-bold" fill="#1e293b" style={{fontSize:"28px",fontWeight:700}}>{total}</text>
-        <text x={cx} y={cy + 14} textAnchor="middle" fill="#94a3b8" style={{fontSize:"11px"}}>members</text>
+        {/* Center text — shows hovered zone or total */}
+        <text x={cx} y={cy - 8} textAnchor="middle" fill="#1e293b" style={{fontSize: hovered ? "13px" : "28px", fontWeight:700, transition:"all 0.2s"}}>
+          {hovered ? hovered.label : total}
+        </text>
+        <text x={cx} y={cy + 10} textAnchor="middle" fill="#64748b" style={{fontSize: hovered ? "22px" : "11px", fontWeight: hovered ? 700 : 400}}>
+          {hovered ? hovered.value : "members"}
+        </text>
+        {hovered && <text x={cx} y={cy + 26} textAnchor="middle" fill="#94a3b8" style={{fontSize:"11px"}}>{hovered.pct}% of total</text>}
       </svg>
-      <div className="flex flex-col gap-1.5 min-w-0 flex-1">
-        {slices.map((s, i) => (
-          <div key={i} className="flex items-center gap-2 text-xs" onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}
-            style={{opacity: hover !== null && hover !== i ? 0.5 : 1, transition:"opacity 0.2s", cursor:"pointer"}}>
-            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{background:s.color}}/>
-            <span className="truncate text-gray-700 font-medium">{s.label}</span>
-            <span className="ml-auto font-bold text-gray-900">{s.value}</span>
-            <span className="text-gray-400 w-8 text-right">{s.pct}%</span>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
@@ -1652,10 +1652,14 @@ function Dashboard({ members, issues, onboarding, applications = [], nav, config
           <span className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-600"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span>
           Quick Actions
         </h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <button onClick={() => nav("enroll")} className="flex flex-col items-center gap-2.5 p-5 rounded-2xl border border-gray-100 hover:shadow-md hover:border-blue-200 transition-all duration-200 group bg-gradient-to-b from-white to-blue-50/50">
             <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center group-hover:scale-110 transition-transform"><UserPlus size={20} className="text-blue-600"/></div>
             <span className="text-xs font-semibold text-gray-700 text-center leading-tight">Enroll Member</span>
+          </button>
+          <button onClick={() => nav("printform")} className="flex flex-col items-center gap-2.5 p-5 rounded-2xl border border-gray-100 hover:shadow-md hover:border-cyan-200 transition-all duration-200 group bg-gradient-to-b from-white to-cyan-50/50">
+            <div className="w-11 h-11 rounded-xl bg-cyan-100 flex items-center justify-center group-hover:scale-110 transition-transform"><Printer size={20} className="text-cyan-600"/></div>
+            <span className="text-xs font-semibold text-gray-700 text-center leading-tight">Print Form</span>
           </button>
           <button onClick={() => nav("reports")} className="flex flex-col items-center gap-2.5 p-5 rounded-2xl border border-gray-100 hover:shadow-md hover:border-indigo-200 transition-all duration-200 group bg-gradient-to-b from-white to-indigo-50/50">
             <div className="w-11 h-11 rounded-xl bg-indigo-100 flex items-center justify-center group-hover:scale-110 transition-transform"><FileText size={20} className="text-indigo-600"/></div>
@@ -1834,69 +1838,80 @@ function PrintableApplicationForm({ config, onClose }) {
       </div>
 
       {/* Printable form content */}
-      <div id="report-content" style={{fontFamily:"Calibri, 'Segoe UI', sans-serif", maxWidth:"210mm", margin:"0 auto", background:"white", padding:"0"}}>
+      <div id="report-content" style={{fontFamily:"'Segoe UI', Calibri, Arial, sans-serif", maxWidth:"210mm", margin:"0 auto", background:"white", padding:"0"}}>
         <style dangerouslySetInnerHTML={{__html: `
           @media print {
-            @page { size: A4 portrait; margin: 12mm 14mm 10mm 14mm; }
+            @page { size: A4 portrait; margin: 10mm 12mm 8mm 12mm; }
             .no-print { display: none !important; }
-            body { margin: 0; background: white; }
+            body { margin: 0; background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             main { padding: 0 !important; max-width: 100% !important; }
             header, footer, nav { display: none !important; }
             #report-content { padding: 0 !important; box-shadow: none !important; border: none !important; }
             .pf-page { page-break-after: avoid; }
           }
-          .pf-page { background: white; }
-          .pf-header { background: #1F3864; color: white; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
-          .pf-header h1 { font-size: 16px; font-weight: 700; letter-spacing: 0.5px; margin: 0; }
-          .pf-header .pf-sub { font-size: 10px; opacity: 0.85; margin-top: 2px; }
-          .pf-header .pf-right { text-align: right; font-size: 9px; opacity: 0.75; }
-          .pf-header .pf-right .pf-reg { font-size: 11px; font-weight: 600; opacity: 1; }
-          .pf-accent { background: #D6E4F0; padding: 6px 24px; font-size: 10px; color: #1F3864; font-weight: 600; letter-spacing: 0.3px; border-bottom: 2px solid #1F3864; }
-          .pf-body { padding: 12px 24px 8px; }
-          .pf-section { margin-bottom: 10px; }
-          .pf-section-title { font-size: 10px; font-weight: 700; color: #1F3864; text-transform: uppercase; letter-spacing: 0.8px; padding-bottom: 3px; border-bottom: 1.5px solid #1F3864; margin-bottom: 8px; }
-          .pf-row { display: flex; gap: 12px; margin-bottom: 6px; }
+          .pf-page { background: white; border: 1px solid #e2e8f0; }
+          .pf-topbar { background: #1e3a5f; height: 4px; }
+          .pf-header { padding: 14px 28px 10px; display: flex; align-items: flex-start; justify-content: space-between; border-bottom: 1px solid #e2e8f0; }
+          .pf-header h1 { font-size: 15px; font-weight: 700; color: #1e3a5f; margin: 0; letter-spacing: 0.3px; }
+          .pf-header .pf-sub { font-size: 9.5px; color: #64748b; margin-top: 1px; font-weight: 400; }
+          .pf-header .pf-right { text-align: right; }
+          .pf-header .pf-right .pf-reg { font-size: 9px; color: #64748b; }
+          .pf-header .pf-right .pf-email { font-size: 9px; color: #94a3b8; margin-top: 1px; }
+          .pf-formtitle { background: #f0f6ff; padding: 6px 28px; font-size: 10px; font-weight: 700; color: #1e3a5f; text-transform: uppercase; letter-spacing: 1.2px; border-bottom: 1px solid #dbeafe; }
+          .pf-body { padding: 10px 28px 6px; }
+          .pf-section { margin-bottom: 9px; }
+          .pf-sh { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+          .pf-snum { width: 18px; height: 18px; border-radius: 50%; background: #1e3a5f; color: white; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+          .pf-stitle { font-size: 9.5px; font-weight: 700; color: #1e3a5f; text-transform: uppercase; letter-spacing: 0.6px; }
+          .pf-sbar { flex: 1; height: 1px; background: #cbd5e1; }
+          .pf-row { display: flex; gap: 14px; margin-bottom: 5px; }
           .pf-field { flex: 1; }
           .pf-field.w2 { flex: 2; }
           .pf-field.w3 { flex: 3; }
           .pf-field.w4 { flex: 4; }
-          .pf-label { font-size: 8px; font-weight: 600; color: #5B6770; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
-          .pf-input { border-bottom: 1px solid #B0BEC5; min-height: 22px; font-size: 11px; padding: 2px 0; }
-          .pf-input.tall { min-height: 40px; }
-          .pf-checkbox-row { display: flex; gap: 16px; padding: 2px 0; }
-          .pf-checkbox { display: flex; align-items: center; gap: 4px; font-size: 10px; color: #333; }
-          .pf-box { width: 12px; height: 12px; border: 1.5px solid #1F3864; display: inline-block; }
-          .pf-info-box { background: #EFF4FB; border: 1px solid #C5D5E8; border-radius: 4px; padding: 8px 12px; margin-bottom: 10px; }
-          .pf-info-box p { font-size: 9px; color: #1F3864; margin: 1px 0; }
-          .pf-info-box .pf-info-title { font-size: 10px; font-weight: 700; margin-bottom: 3px; }
-          .pf-footer { border-top: 2px solid #1F3864; padding: 10px 24px; display: flex; justify-content: space-between; gap: 24px; }
+          .pf-label { font-size: 7.5px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 1px; }
+          .pf-input { border-bottom: 1px solid #cbd5e1; min-height: 20px; font-size: 11px; padding: 1px 0; }
+          .pf-input.tall { min-height: 32px; }
+          .pf-checkbox-row { display: flex; gap: 14px; padding: 2px 0; }
+          .pf-checkbox { display: flex; align-items: center; gap: 4px; font-size: 9px; color: #334155; }
+          .pf-box { width: 11px; height: 11px; border: 1.5px solid #94a3b8; border-radius: 2px; display: inline-block; }
+          .pf-info-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 7px 12px; margin-bottom: 7px; }
+          .pf-info-box p { font-size: 8.5px; color: #334155; margin: 1px 0; line-height: 1.4; }
+          .pf-info-box .pf-info-title { font-size: 8px; font-weight: 700; color: #1e3a5f; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+          .pf-decl { padding: 6px 28px; font-size: 8.5px; color: #475569; line-height: 1.4; border-top: 1px solid #e2e8f0; }
+          .pf-decl strong { color: #1e3a5f; }
+          .pf-sigrow { display: flex; gap: 28px; padding: 6px 28px 8px; }
           .pf-sig-block { flex: 1; }
-          .pf-sig-label { font-size: 8px; text-transform: uppercase; color: #5B6770; letter-spacing: 0.5px; margin-bottom: 28px; }
-          .pf-sig-line { border-top: 1px solid #333; padding-top: 3px; font-size: 9px; color: #333; }
-          .pf-note { text-align: center; font-size: 8px; color: #999; padding: 6px 24px 4px; border-top: 1px solid #E8E8E8; }
-          .pf-photo-box { width: 80px; height: 90px; border: 1.5px solid #1F3864; display: flex; align-items: center; justify-content: center; font-size: 7px; color: #999; text-align: center; flex-shrink: 0; }
+          .pf-sig-label { font-size: 7px; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.4px; margin-bottom: 22px; }
+          .pf-sig-line { border-top: 1px solid #475569; padding-top: 2px; font-size: 8px; color: #475569; }
+          .pf-office { background: #f8fafc; border-top: 1.5px solid #1e3a5f; padding: 7px 28px 8px; }
+          .pf-office-title { font-size: 8px; font-weight: 700; color: #1e3a5f; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 5px; }
+          .pf-footer-bar { background: #1e3a5f; color: white; text-align: center; font-size: 7.5px; padding: 4px 28px; letter-spacing: 0.3px; opacity: 0.9; }
+          .pf-photo-box { width: 72px; height: 84px; border: 1.5px dashed #94a3b8; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 7px; color: #94a3b8; text-align: center; flex-shrink: 0; }
         `}} />
 
         <div className="pf-page">
+          <div className="pf-topbar"/>
+
           {/* Header */}
           <div className="pf-header">
             <div>
-              <h1>{config.associationName || "BOIPRA"} — SOUTH ZONE</h1>
+              <h1>{config.associationName || "BOIPRA"} — South Zone</h1>
               <div className="pf-sub">Bank of India Pensioners' &amp; Retirees' Association</div>
             </div>
             <div className="pf-right">
               <div className="pf-reg">Reg. No. {config.regNo || "115/2017"}</div>
-              <div>{config.email || "boiparasz@gmail.com"}</div>
+              <div className="pf-email">{config.email || "boiparasz@gmail.com"}</div>
             </div>
           </div>
 
-          <div className="pf-accent">MEMBERSHIP APPLICATION FORM</div>
+          <div className="pf-formtitle">Membership Application Form</div>
 
           <div className="pf-body">
             {/* Section 1: Personal Details */}
             <div className="pf-section">
-              <div className="pf-section-title">1. Personal Details</div>
-              <div style={{display:"flex",gap:"16px"}}>
+              <div className="pf-sh"><span className="pf-snum">1</span><span className="pf-stitle">Personal Details</span><span className="pf-sbar"/></div>
+              <div style={{display:"flex",gap:"14px"}}>
                 <div style={{flex:1}}>
                   <div className="pf-row">
                     <div className="pf-field"><div className="pf-label">Title</div>
@@ -1904,13 +1919,11 @@ function PrintableApplicationForm({ config, onClose }) {
                         {["Mr.","Mrs.","Ms.","Dr."].map(t => <span key={t} className="pf-checkbox"><span className="pf-box"/> {t}</span>)}
                       </div>
                     </div>
-                  </div>
-                  <div className="pf-row">
-                    <div className="pf-field w4"><div className="pf-label">Full Name (as per bank records)</div><div className="pf-input"/></div>
+                    <div className="pf-field w3"><div className="pf-label">Full Name (as per bank records)</div><div className="pf-input"/></div>
                   </div>
                   <div className="pf-row">
                     <div className="pf-field w3"><div className="pf-label">Son / Wife / Daughter of</div><div className="pf-input"/></div>
-                    <div className="pf-field w2"><div className="pf-label">PF Number</div><div className="pf-input"/></div>
+                    <div className="pf-field"><div className="pf-label">PF Number</div><div className="pf-input"/></div>
                   </div>
                   <div className="pf-row">
                     <div className="pf-field"><div className="pf-label">Date of Birth</div><div className="pf-input"/></div>
@@ -1922,24 +1935,24 @@ function PrintableApplicationForm({ config, onClose }) {
                     </div>
                   </div>
                 </div>
-                <div className="pf-photo-box">Passport<br/>Photo<br/>(stamp size)</div>
+                <div className="pf-photo-box">Passport<br/>Photo</div>
               </div>
             </div>
 
             {/* Section 2: Contact & Location */}
             <div className="pf-section">
-              <div className="pf-section-title">2. Contact &amp; Location</div>
+              <div className="pf-sh"><span className="pf-snum">2</span><span className="pf-stitle">Contact &amp; Location</span><span className="pf-sbar"/></div>
               <div className="pf-row">
                 <div className="pf-field"><div className="pf-label">Mobile (WhatsApp)</div><div className="pf-input"/></div>
                 <div className="pf-field"><div className="pf-label">Alternate Contact</div><div className="pf-input"/></div>
                 <div className="pf-field w2"><div className="pf-label">Email Address</div><div className="pf-input"/></div>
               </div>
               <div className="pf-row">
-                <div className="pf-field w4"><div className="pf-label">Full Address (House/Flat No., Street, Area, City, State, PIN)</div><div className="pf-input tall"/></div>
+                <div className="pf-field w4"><div className="pf-label">Full Address (House No., Street, Area, City, State, PIN)</div><div className="pf-input tall"/></div>
               </div>
               <div className="pf-row">
-                <div className="pf-field"><div className="pf-label">Zone</div>
-                  <div className="pf-input" style={{fontSize:"8px",color:"#999",lineHeight:"1.3"}}>Chennai / Madurai / Coimbatore / Trichy / Salem / Erode / Tirunelveli / Nagercoil / Vellore / Pondicherry / Thanjavur</div>
+                <div className="pf-field"><div className="pf-label">Zone (circle one)</div>
+                  <div className="pf-input" style={{fontSize:"7.5px",color:"#94a3b8",lineHeight:"1.3"}}>Chennai / Madurai / Coimbatore / Trichy / Salem / Erode / Tirunelveli / Nagercoil / Vellore / Pondicherry / Thanjavur</div>
                 </div>
                 <div className="pf-field"><div className="pf-label">Centre / City</div><div className="pf-input"/></div>
               </div>
@@ -1947,7 +1960,7 @@ function PrintableApplicationForm({ config, onClose }) {
 
             {/* Section 3: Service Details */}
             <div className="pf-section">
-              <div className="pf-section-title">3. Service Details</div>
+              <div className="pf-sh"><span className="pf-snum">3</span><span className="pf-stitle">Service Details</span><span className="pf-sbar"/></div>
               <div className="pf-row">
                 <div className="pf-field"><div className="pf-label">Date of Retirement</div><div className="pf-input"/></div>
                 <div className="pf-field w2"><div className="pf-label">Branch Retired From</div><div className="pf-input"/></div>
@@ -1955,17 +1968,18 @@ function PrintableApplicationForm({ config, onClose }) {
               </div>
               <div className="pf-row">
                 <div className="pf-field w2"><div className="pf-label">Family Pensioner Name (Nominee)</div><div className="pf-input"/></div>
-                <div className="pf-field"><div className="pf-label">Family Contact No.</div><div className="pf-input"/></div>
+                <div className="pf-field"><div className="pf-label">Nominee Relationship</div><div className="pf-input"/></div>
+                <div className="pf-field"><div className="pf-label">Nominee Contact No.</div><div className="pf-input"/></div>
               </div>
             </div>
 
             {/* Section 4: Payment */}
             <div className="pf-section">
-              <div className="pf-section-title">4. Payment Details</div>
+              <div className="pf-sh"><span className="pf-snum">4</span><span className="pf-stitle">Payment Details</span><span className="pf-sbar"/></div>
               <div className="pf-info-box">
-                <p className="pf-info-title">Membership Fees</p>
-                <p>Admission Fee: <strong>Rs. {config.admissionFee || 100}</strong> (one-time) &nbsp;|&nbsp; Annual Subscription: <strong>Rs. {config.annualSub || 750}</strong> &nbsp;|&nbsp; 2-Year: <strong>Rs. {config.twoYearSub || 1500}</strong></p>
-                <p style={{marginTop:"3px"}}>Bank Details — A/c Name: <strong>{config.bankAccountName || "BOIPARA SZ"}</strong> &nbsp;|&nbsp; A/c No: <strong>{config.bankAccountNo || "800210110005740"}</strong> &nbsp;|&nbsp; Bank: <strong>{config.bankName || "Bank of India"}</strong></p>
+                <p className="pf-info-title">Fee Schedule &amp; Bank Details</p>
+                <p>Admission Fee: <strong>Rs. {config.admissionFee || 100}</strong> (one-time) &nbsp;&bull;&nbsp; Annual: <strong>Rs. {config.annualSub || 750}</strong> &nbsp;&bull;&nbsp; 2-Year: <strong>Rs. {config.twoYearSub || 1500}</strong></p>
+                <p>A/c: <strong>{config.bankAccountName || "BOIPARA SZ"}</strong> &nbsp;&bull;&nbsp; No: <strong>{config.bankAccountNo || "800210110005740"}</strong> &nbsp;&bull;&nbsp; <strong>{config.bankName || "Bank of India"}</strong></p>
               </div>
               <div className="pf-row">
                 <div className="pf-field"><div className="pf-label">Payment Mode</div>
@@ -1976,44 +1990,42 @@ function PrintableApplicationForm({ config, onClose }) {
                 <div className="pf-field"><div className="pf-label">Amount Paid (Rs.)</div><div className="pf-input"/></div>
                 <div className="pf-field w2"><div className="pf-label">Payment Ref / UTR / Cheque No.</div><div className="pf-input"/></div>
               </div>
-              <div className="pf-row">
-                <div className="pf-field w4"><div className="pf-label">Additional Notes / Remarks</div><div className="pf-input tall"/></div>
-              </div>
             </div>
           </div>
 
-          {/* Declaration + Signatures */}
-          <div style={{padding:"4px 24px 6px",fontSize:"9px",color:"#333"}}>
-            <strong>Declaration:</strong> I hereby apply for membership of {config.shortName || "BOIPRA-SZ"} and agree to abide by the rules and regulations of the Association. I certify that the above information is true and correct.
+          {/* Declaration */}
+          <div className="pf-decl">
+            <strong>Declaration:</strong> I hereby apply for membership of {config.shortName || "BOIPRA-SZ"} and agree to abide by the rules and regulations of the Association. I certify that the information provided above is true and correct to the best of my knowledge.
           </div>
 
-          <div className="pf-footer">
+          {/* Signatures */}
+          <div className="pf-sigrow">
             <div className="pf-sig-block">
-              <div className="pf-sig-label">Date</div>
-              <div className="pf-sig-line">Date: _______________</div>
+              <div className="pf-sig-label">Place &amp; Date</div>
+              <div className="pf-sig-line">Place &amp; Date</div>
             </div>
             <div className="pf-sig-block">
               <div className="pf-sig-label">Applicant's Signature</div>
               <div className="pf-sig-line">Signature of Applicant</div>
             </div>
             <div className="pf-sig-block">
-              <div className="pf-sig-label">For Office Use Only</div>
-              <div className="pf-sig-line">Verified by: _______________</div>
+              <div className="pf-sig-label">Proposer (Existing Member)</div>
+              <div className="pf-sig-line">Name &amp; MS No.</div>
             </div>
           </div>
 
           {/* Office use section */}
-          <div style={{padding:"4px 24px 8px",borderTop:"1px solid #E8E8E8"}}>
-            <div style={{fontSize:"8px",fontWeight:700,color:"#1F3864",textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:"4px"}}>For Office Use Only</div>
+          <div className="pf-office">
+            <div className="pf-office-title">For Office Use Only</div>
             <div className="pf-row">
               <div className="pf-field"><div className="pf-label">M.S. No. Allotted</div><div className="pf-input"/></div>
               <div className="pf-field"><div className="pf-label">Date of Admission</div><div className="pf-input"/></div>
-              <div className="pf-field"><div className="pf-label">Entered by</div><div className="pf-input"/></div>
+              <div className="pf-field"><div className="pf-label">Verified by</div><div className="pf-input"/></div>
               <div className="pf-field"><div className="pf-label">Approved by</div><div className="pf-input"/></div>
             </div>
           </div>
 
-          <div className="pf-note">{config.associationName || "BOIPRA"} — South Zone &nbsp;|&nbsp; Reg. No. {config.regNo || "115/2017"} &nbsp;|&nbsp; {config.email || "boiparasz@gmail.com"}</div>
+          <div className="pf-footer-bar">{config.associationName || "BOIPRA"} South Zone &nbsp;&bull;&nbsp; Reg. No. {config.regNo || "115/2017"} &nbsp;&bull;&nbsp; {config.email || "boiparasz@gmail.com"}</div>
         </div>
       </div>
     </div>
