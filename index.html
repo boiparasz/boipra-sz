@@ -390,7 +390,6 @@ const IMPORT_MAP = {
 
 function excelDateToStr(v) {
   if (!v) return "";
-  if (typeof v === "string") return v;
   if (typeof v === "number") {
     // Excel serial date -> JS Date
     const d = new Date((v - 25569) * 86400000);
@@ -400,6 +399,24 @@ function excelDateToStr(v) {
     return `${yyyy}-${mm}-${dd}`;
   }
   if (v instanceof Date) return v.toISOString().slice(0, 10);
+  if (typeof v === "string") {
+    const s = v.trim();
+    // Already YYYY-MM-DD?
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    // DD.MM.YYYY or DD/MM/YYYY or DD-MM-YYYY
+    const m = s.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})$/);
+    if (m) return `${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`;
+    // MM/DD/YYYY (US format) — ambiguous, but if month > 12 swap
+    const m2 = s.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2})$/);
+    if (m2) {
+      const yr = Number(m2[3]) > 50 ? `19${m2[3]}` : `20${m2[3]}`;
+      return `${yr}-${m2[2].padStart(2,"0")}-${m2[1].padStart(2,"0")}`;
+    }
+    // Try native Date parse as fallback
+    const d = new Date(s);
+    if (!isNaN(d.getTime()) && d.getFullYear() > 1900) return d.toISOString().slice(0,10);
+    return s;
+  }
   return String(v);
 }
 
@@ -981,8 +998,9 @@ function App() {
         // Monthly Update: update existing members, send new ones to pending queue
         const existingByMSNO = {};
         DB.members.forEach(m => { existingByMSNO[String(m.msno)] = m; });
-        const existingPFs = new Set(DB.members.map(m => m.pf));
-        let updated = 0, queued = 0;
+        // Build PF lookup using string keys for reliable type-safe comparison
+        const existingPFs = new Set(DB.members.map(m => String(m.pf || "").trim()));
+        let updated = 0, queued = 0, skippedDupPF = 0;
         result.members.forEach(imported => {
           const msnoKey = String(imported.msno);
           const existing = existingByMSNO[msnoKey];
@@ -993,42 +1011,49 @@ function App() {
               "familyPensioner","bloodGroup"];
             let changed = false;
             updateFields.forEach(f => {
-              if (imported[f] && imported[f] !== existing[f]) {
+              const impVal = imported[f] != null ? String(imported[f]).trim() : "";
+              const curVal = existing[f] != null ? String(existing[f]).trim() : "";
+              if (impVal && impVal !== curVal) {
                 existing[f] = imported[f];
                 changed = true;
               }
             });
             if (changed) updated++;
-          } else if (!existingPFs.has(imported.pf) || !imported.pf) {
-            // New member — add to pending queue for manual approval
-            DB.onboarding.push({
-              appNo: DB.nextAppNo++,
-              dateReceived: new Date().toISOString().slice(0,10),
-              name: imported.name || "",
-              pf: imported.pf || "",
-              mobile: imported.mobile || "",
-              email: imported.email || "",
-              title: imported.title || "",
-              sowo: imported.sowo || "",
-              category: imported.category || "",
-              centre: imported.centre || "",
-              zone: imported.zone || "",
-              address: imported.address || "",
-              doj: imported.doj || "",
-              dob: imported.dob || "",
-              dor: imported.dor || "",
-              branchRetired: imported.branchRetired || "",
-              branchPension: imported.branchPension || "",
-              bloodGroup: imported.bloodGroup || "",
-              importedMSNO: imported.msno || "",
-              source: "monthly-import",
-              formReceived:"N", pfVerified:"N", paymentReceived:"N", enteredInInputs:"N"
-            });
-            queued++;
+          } else {
+            // New member not in current DB by MSNO — queue for manual approval
+            const importedPF = String(imported.pf || "").trim();
+            if (importedPF && existingPFs.has(importedPF)) {
+              skippedDupPF++;  // PF already exists under different MSNO — skip but count
+            } else {
+              DB.onboarding.push({
+                appNo: DB.nextAppNo++,
+                dateReceived: new Date().toISOString().slice(0,10),
+                name: imported.name || "",
+                pf: imported.pf || "",
+                mobile: typeof imported.mobile === "number" ? String(imported.mobile) : (imported.mobile || ""),
+                email: imported.email || "",
+                title: imported.title || "",
+                sowo: imported.sowo || "",
+                category: imported.category || "",
+                centre: imported.centre || "",
+                zone: imported.zone || "",
+                address: imported.address || "",
+                doj: imported.doj || "",
+                dob: imported.dob || "",
+                dor: imported.dor || "",
+                branchRetired: imported.branchRetired || "",
+                branchPension: imported.branchPension || "",
+                bloodGroup: imported.bloodGroup || "",
+                importedMSNO: imported.msno || "",
+                source: "monthly-import",
+                formReceived:"N", pfVerified:"N", paymentReceived:"N", enteredInInputs:"N"
+              });
+              queued++;
+            }
           }
         });
         refresh();
-        return { updated, queued };
+        return { updated, queued, skippedDupPF };
       } else {
         const existingPFs = new Set(DB.members.map(m => m.pf));
         let added = 0;
@@ -2221,14 +2246,31 @@ function Reports({ members, config }) {
     return opts;
   }, []);
 
+  /* ── Normalize any date string to YYYY-MM-DD for comparison ── */
+  const toISO = (d) => {
+    if (!d) return "";
+    if (typeof d === "string") {
+      const s = d.trim();
+      if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+      const m = s.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})$/);
+      if (m) return `${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`;
+      const m2 = s.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2})$/);
+      if (m2) {
+        const yr = Number(m2[3]) > 50 ? `19${m2[3]}` : `20${m2[3]}`;
+        return `${yr}-${m2[2].padStart(2,"0")}-${m2[1].padStart(2,"0")}`;
+      }
+    }
+    return String(d);
+  };
+
   /* ── Data filtered by FY ── */
   const active = members.filter(m => m.status === "ACTIVE").sort((a,b) => a.msno - b.msno);
 
   // Members added during this FY (joined within Apr-Mar and currently active OR have doj in range)
-  const addedInFY = members.filter(m => m.doj >= fyStartDate && m.doj <= fyEndDate).sort((a,b) => a.msno - b.msno);
+  const addedInFY = members.filter(m => { const d = toISO(m.doj); return d >= fyStartDate && d <= fyEndDate; }).sort((a,b) => a.msno - b.msno);
 
   // Members removed during this FY (non-active with dateOfChange in Apr-Mar range)
-  const removedInFY = members.filter(m => m.status !== "ACTIVE" && m.dateOfChange >= fyStartDate && m.dateOfChange <= fyEndDate).sort((a,b) => a.msno - b.msno);
+  const removedInFY = members.filter(m => { const d = toISO(m.dateOfChange); return m.status !== "ACTIVE" && d >= fyStartDate && d <= fyEndDate; }).sort((a,b) => a.msno - b.msno);
 
   /* ── Reconciliation calculation ── */
   // Opening balance = active count at start of FY
@@ -2545,6 +2587,7 @@ function SettingsView({ config, zones, refresh, members, onImport, onReset, onEx
         const parts = [];
         if (result.updated > 0) parts.push(`${result.updated} existing members updated`);
         if (result.queued > 0) parts.push(`${result.queued} new members sent to Pending Queue for approval`);
+        if (result.skippedDupPF > 0) parts.push(`${result.skippedDupPF} skipped (PF already exists under different MS.NO)`);
         if (parts.length === 0) parts.push("No changes detected");
         setImportMsg(parts.join(". ") + ".");
       } else {
