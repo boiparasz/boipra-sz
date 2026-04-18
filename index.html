@@ -2670,8 +2670,10 @@ function Reports({ members, config }) {
   const tabDefs = [
     ["reconcile","Reconciliation"],
     ["form6","Form 6 — Member Register"],
-    ["form7","Form 7 — New & Removed Members"],
-    ["masterlist","Master List (Full Details)"]
+    ["form7new","Form 7 — New Members"],
+    ["form7del","Form 7 — Removed"],
+    ["form7","Form 7 — Combined"],
+    ["masterlist","Master List"]
   ];
 
   const statusLabel = (s) => {
@@ -2697,19 +2699,18 @@ function Reports({ members, config }) {
       </div>
 
       <div className="flex items-center gap-3 flex-wrap no-print">
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-gray-700">Report:</label>
-          <select value={tab} onChange={e => setTab(e.target.value)} className="border border-gray-300 rounded-lg px-4 py-2.5 text-sm bg-white font-medium min-w-[240px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
-            {tabDefs.map(([id,label]) => <option key={id} value={id}>{label}</option>)}
-          </select>
+        <div className="flex flex-wrap gap-1.5">
+          {tabDefs.map(([id,label]) => (
+            <button key={id} onClick={() => setTab(id)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === id ? "bg-blue-900 text-white shadow-sm" : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:text-gray-900"}`}>{label}</button>
+          ))}
         </div>
 
         {/* FY Selector — shown for Form 7 and Reconciliation tabs */}
-        {(tab === "form7" || tab === "reconcile") && (
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-gray-700">Financial Year:</label>
+        {(tab === "form7" || tab === "form7new" || tab === "form7del" || tab === "reconcile") && (
+          <div className="flex items-center gap-2 ml-auto">
+            <label className="text-sm font-medium text-gray-700">FY:</label>
             <select value={fyStart} onChange={e => setFyStart(Number(e.target.value))} className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
-              {fyOptions.map(y => <option key={y} value={y}>FY {y}-{String(y+1).slice(2)} (Apr {y} – Mar {y+1})</option>)}
+              {fyOptions.map(y => <option key={y} value={y}>{y}-{String(y+1).slice(2)}</option>)}
             </select>
           </div>
         )}
@@ -2829,15 +2830,15 @@ function Reports({ members, config }) {
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b no-print">
           <span className="text-sm font-medium text-gray-700">
-            {tab === "form6" ? `${active.length} active members` : tab === "form7" ? `${addedInFY.length} new + ${removedInFY.length > 0 ? removedInFY.length : allRemoved.length} removed in ${fyLabel}` : `${active.length} active members — full details`}
+            {tab === "form6" ? `${active.length} active members` : tab === "form7new" ? `${addedInFY.length} new members in ${fyLabel}` : tab === "form7del" ? `${(removedInFY.length > 0 ? removedInFY.length : allRemoved.length)} removed in ${fyLabel}` : tab === "form7" ? `${addedInFY.length} new + ${removedInFY.length > 0 ? removedInFY.length : allRemoved.length} removed in ${fyLabel}` : `${active.length} active members — full details`}
           </span>
           <button onClick={handlePrint} className="flex items-center gap-2 text-sm text-blue-900 font-medium hover:underline"><Printer size={14}/>Print</button>
         </div>
 
         <div id="report-content" className="p-4 overflow-x-auto">
           <h2 style={{color:"#1F3864"}}>{config.associationName} — South Zone</h2>
-          <h3 style={{color:"#666",fontSize:"13px"}}>{tab === "form6" ? "FORM 6 — List of Members (Register of Societies Act)" : tab === "form7" ? `FORM 7 — Notice of Change Among Members (${fyLabel})` : "MASTER LIST — Complete Member Details"}</h3>
-          <p style={{fontSize:"11px",color:"#999"}}>Reg. No. {config.regNo} · Generated: {new Date().toISOString().slice(0,10)}{tab === "form7" ? ` · Period: ${fyStartDate} to ${fyEndDate}` : ""}</p>
+          <h3 style={{color:"#666",fontSize:"13px"}}>{tab === "form6" ? "FORM 6 — List of Members (Register of Societies Act)" : tab === "form7new" ? `FORM 7 — New Members Added (${fyLabel})` : tab === "form7del" ? `FORM 7 — Members Removed / Deceased (${fyLabel})` : tab === "form7" ? `FORM 7 — Notice of Change Among Members (${fyLabel})` : "MASTER LIST — Complete Member Details"}</h3>
+          <p style={{fontSize:"11px",color:"#999"}}>Reg. No. {config.regNo} · Generated: {new Date().toISOString().slice(0,10)}{(tab === "form7" || tab === "form7new" || tab === "form7del") ? ` · Period: ${fyStartDate} to ${fyEndDate}` : ""}</p>
 
           {/* FORM 6 — Official Registrar Format */}
           {tab === "form6" && (
@@ -2861,6 +2862,63 @@ function Reports({ members, config }) {
               </tbody>
             </table>
           )}
+
+          {/* FORM 7 — New Members Only */}
+          {tab === "form7new" && (
+            addedInFY.length === 0 ? (
+              <p style={{fontSize:"12px",color:"#999",padding:"20px 0",textAlign:"center"}}>No new members added in {fyLabel}.</p>
+            ) : (
+              <table className="w-full mt-3" style={{borderCollapse:"collapse",fontSize:"10px",tableLayout:"fixed"}}>
+                <colgroup>
+                  <col style={{width:"4%"}}/><col style={{width:"5%"}}/><col style={{width:"14%"}}/><col style={{width:"10%"}}/>
+                  <col style={{width:"7%"}}/><col style={{width:"4%"}}/><col style={{width:"20%"}}/><col style={{width:"9%"}}/>
+                  <col style={{width:"7%"}}/><col style={{width:"7%"}}/><col style={{width:"6%"}}/><col style={{width:"7%"}}/>
+                </colgroup>
+                <thead><tr className="bg-green-800 text-white">
+                  {["S.No","M.S.NO","Name","S/o W/o D/o","PF No.","Cat.","Address","Mobile","Zone","Centre","DOJ","Email"].map(h => <th key={h} className="px-1 py-1.5 text-left font-semibold border border-green-700" style={{fontSize:"9px"}}>{h}</th>)}
+                </tr></thead>
+                <tbody>
+                  {addedInFY.map((m,i) => (
+                    <tr key={m.msno} className={i%2 ? "bg-green-50":""}>
+                      {[i+1, m.msno, m.name, m.sowo, m.pf, m.category, m.address, m.mobile, m.zone, m.centre, m.doj, m.email].map((v,j) =>
+                        <td key={j} className="px-1 py-1 border border-gray-300" style={{overflow:"hidden",wordWrap:"break-word"}}>{v}</td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )
+          )}
+
+          {/* FORM 7 — Removed / Deceased Only */}
+          {tab === "form7del" && (() => {
+            const displayList = removedInFY.length > 0 ? removedInFY : allRemoved;
+            const showingAll = removedInFY.length === 0 && allRemoved.length > 0;
+            return (<>
+              {showingAll && <p style={{fontSize:"11px",color:"#c05621",background:"#fffbeb",padding:"6px 10px",borderRadius:"4px",margin:"4px 0 8px"}}>No members have "Date of Change" within {fyLabel}. Showing all {allRemoved.length} non-active members.</p>}
+              {displayList.length === 0 ? <p style={{fontSize:"12px",color:"#999",padding:"20px 0",textAlign:"center"}}>No removed or deceased members found.</p> : (
+              <table className="w-full mt-3" style={{borderCollapse:"collapse",fontSize:"10px",tableLayout:"fixed"}}>
+                <colgroup>
+                  <col style={{width:"4%"}}/><col style={{width:"6%"}}/><col style={{width:"14%"}}/><col style={{width:"10%"}}/>
+                  <col style={{width:"7%"}}/><col style={{width:"5%"}}/><col style={{width:"9%"}}/><col style={{width:"9%"}}/>
+                  <col style={{width:"10%"}}/><col style={{width:"14%"}}/><col style={{width:"8%"}}/>
+                </colgroup>
+                <thead><tr className="bg-red-800 text-white">
+                  {["S.No","M.S.NO","Name","S/o W/o D/o","PF No.","Cat.","Centre","Zone","Date of Change","Reason / Status","DOJ"].map(h => <th key={h} className="px-1 py-1.5 text-left font-semibold border border-red-700" style={{fontSize:"9px"}}>{h}</th>)}
+                </tr></thead>
+                <tbody>
+                  {displayList.map((m,i) => (
+                    <tr key={m.msno} className={i%2 ? "bg-red-50":""}>
+                      {[i+1, m.msno, m.name, m.sowo, m.pf, m.category, m.centre, m.zone, m.dateOfChange, m.reasonForChange || statusLabel(m.status), m.doj].map((v,j) =>
+                        <td key={j} className="px-1 py-1 border border-gray-300" style={{overflow:"hidden",wordWrap:"break-word"}}>{v}</td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              )}
+            </>);
+          })()}
 
           {/* FORM 7 — Combined: New Members + Removed Members */}
           {tab === "form7" && (() => {
