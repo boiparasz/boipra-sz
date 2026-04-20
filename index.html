@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>BOIPRA-SZ Membership App</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏦</text></svg>"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
@@ -12,7 +15,59 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";</script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: { sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'] },
+      colors: {
+        brand: { 50:'#eff6ff', 100:'#dbeafe', 200:'#bfdbfe', 500:'#3b82f6', 600:'#2563eb', 700:'#1d4ed8', 800:'#1e3a5f', 900:'#0c1d36' },
+      },
+      fontSize: {
+        'metric': ['2rem', { lineHeight: '1', fontWeight: '700', letterSpacing: '-0.025em' }],
+        'metric-sm': ['1.5rem', { lineHeight: '1', fontWeight: '700', letterSpacing: '-0.02em' }],
+      },
+      boxShadow: {
+        'card': '0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04)',
+        'card-hover': '0 4px 12px -2px rgb(0 0 0 / 0.08), 0 2px 6px -2px rgb(0 0 0 / 0.04)',
+        'nav': '0 1px 2px 0 rgb(0 0 0 / 0.15)',
+      }
+    }
+  }
+}
+</script>
 <style>
+*, *::before, *::after { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+body { background: #f8fafc; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+/* Premium nav styling */
+.nav-item { position: relative; padding: 10px 14px; font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.6); border-radius: 8px; transition: all 0.15s ease; display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+.nav-item:hover { color: rgba(255,255,255,0.9); background: rgba(255,255,255,0.06); }
+.nav-item.active { color: #fff; background: rgba(255,255,255,0.1); }
+.nav-item.active::after { content: ''; position: absolute; bottom: -1px; left: 50%; transform: translateX(-50%); width: 20px; height: 2px; background: #60a5fa; border-radius: 2px; }
+
+/* Premium badge */
+.nav-badge { font-size: 10px; font-weight: 700; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+.nav-badge-red { background: #ef4444; color: #fff; }
+.nav-badge-amber { background: #f59e0b; color: #fff; }
+
+/* Metric card */
+.metric-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px; transition: all 0.2s ease; position: relative; overflow: hidden; }
+.metric-card:hover { box-shadow: 0 4px 12px -2px rgb(0 0 0 / 0.08); border-color: #cbd5e1; transform: translateY(-1px); }
+.metric-card .accent-bar { position: absolute; top: 0; left: 0; width: 100%; height: 3px; }
+
+/* Section card */
+.section-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; }
+
+/* Overdue row */
+.overdue-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid #f1f5f9; transition: background 0.1s; }
+.overdue-row:last-child { border-bottom: none; }
+.overdue-row:hover { background: #fafbfc; }
+
+/* Quick action */
+.quick-action { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 20px 12px; border-radius: 14px; border: 1px solid #e2e8f0; transition: all 0.2s ease; background: #fff; }
+.quick-action:hover { border-color: #cbd5e1; box-shadow: 0 4px 12px -2px rgb(0 0 0 / 0.06); transform: translateY(-2px); }
+
 @media print {
   @page { size: landscape; margin: 8mm; }
   .no-print, header, footer, nav { display: none !important; }
@@ -32,8 +87,9 @@
 /* Mobile responsive */
 @media (max-width: 768px) {
   .mobile-nav { flex-wrap: wrap !important; gap: 4px !important; }
-  .mobile-nav button { padding: 6px 8px !important; font-size: 10px !important; }
-  .mobile-nav button span:not(.badge) { display: none; } /* hide badge text but keep icon */
+  .mobile-nav .nav-item { padding: 6px 8px !important; font-size: 10px !important; }
+  .mobile-nav .nav-item span:not(.nav-badge) { display: none; }
+  .mobile-nav .nav-item.active::after { display: none; }
   header h1 { font-size: 14px !important; }
   header p { font-size: 10px !important; }
   .mobile-stack { flex-direction: column !important; }
@@ -42,7 +98,8 @@
   .mobile-scroll table { min-width: 700px; }
   .mobile-hide { display: none !important; }
   .mobile-small { font-size: 12px !important; }
-  main { padding-left: 8px !important; padding-right: 8px !important; }
+  main { padding-left: 12px !important; padding-right: 12px !important; }
+  .metric-card { padding: 16px; }
 }
 </style>
 </head>
@@ -1159,45 +1216,54 @@ function App() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-blue-900 shadow-lg no-print">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <button onClick={() => nav("dashboard")} className="flex items-center gap-3 hover:opacity-90 transition">
-            <div className="w-10 h-10 rounded-full bg-blue-700 flex items-center justify-center"><Users size={20} className="text-white"/></div>
-            <div><h1 className="text-white font-bold text-lg leading-tight">BOIPRA - South Zone</h1>
-            <p className="text-blue-300 text-xs">Membership Management System</p></div>
-          </button>
-          <div className="flex items-center gap-3 mobile-stack">
+    <div className="min-h-screen" style={{background:'#f7f8fa'}}>
+      <header className="no-print" style={{background:'linear-gradient(180deg, #0c1d36 0%, #112240 100%)'}}>
+        <div className="max-w-[1360px] mx-auto px-5">
+          {/* Top bar: Brand + Status + Actions */}
+          <div className="flex items-center justify-between h-[52px]">
+            <button onClick={() => nav("dashboard")} className="flex items-center gap-2.5 hover:opacity-90 transition group">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{background:'linear-gradient(135deg, #2563eb, #3b82f6)'}}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v4M12 14v4M16 14v4"/></svg>
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-white font-semibold text-[14px] leading-tight tracking-[-0.01em]">BOIPRA<span className="text-blue-400 font-normal mx-1">—</span><span className="font-medium text-white/90">South Zone</span></h1>
+              </div>
+            </button>
+
             <div className="flex items-center gap-2">
-              {syncing && <RefreshCw size={14} className="text-blue-300 animate-spin"/>}
-              {saveStatus === "synced" && <span className="text-green-400 text-xs flex items-center gap-1"><Check size={12}/><span className="mobile-hide">Synced to Sheet</span></span>}
-              {saveStatus === "saved" && <span className="text-green-400 text-xs flex items-center gap-1"><Check size={12}/><span className="mobile-hide">Saved locally</span></span>}
-              {saveStatus === "local" && <span className="text-amber-400 text-xs flex items-center gap-1"><AlertCircle size={12}/><span className="mobile-hide">Offline</span></span>}
-              {syncError && <span className="text-red-400 text-xs mobile-hide">{syncError}</span>}
-              {getScriptUrl() && <button onClick={refreshFromSheet} title="Refresh from Google Sheet" className="text-blue-300 hover:text-white transition p-1"><RefreshCw size={14}/></button>}
-              <button onClick={() => { sessionStorage.removeItem(AUTH_KEY); window.location.reload(); }} title="Logout" className="text-blue-300 hover:text-white transition p-1"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
+              {/* Sync status */}
+              <div className="flex items-center gap-2 mr-1">
+                {syncing && <RefreshCw size={13} className="text-blue-400 animate-spin"/>}
+                {saveStatus === "synced" && <span className="text-emerald-400 text-[11px] flex items-center gap-1 font-medium"><Check size={11}/>Synced</span>}
+                {saveStatus === "saved" && <span className="text-emerald-400 text-[11px] flex items-center gap-1 font-medium"><Check size={11}/>Saved</span>}
+                {saveStatus === "local" && <span className="text-amber-400 text-[11px] flex items-center gap-1 font-medium"><AlertCircle size={11}/>Offline</span>}
+                {syncError && <span className="text-red-400 text-[11px] mobile-hide">{syncError}</span>}
+              </div>
+              {getScriptUrl() && <button onClick={refreshFromSheet} title="Refresh from Google Sheet" className="w-8 h-8 rounded-lg flex items-center justify-center text-white/40 hover:text-white/80 hover:bg-white/[0.06] transition"><RefreshCw size={14}/></button>}
+              <button onClick={() => { sessionStorage.removeItem(AUTH_KEY); window.location.reload(); }} title="Logout" className="w-8 h-8 rounded-lg flex items-center justify-center text-white/40 hover:text-white/80 hover:bg-white/[0.06] transition">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              </button>
             </div>
-            <nav className="flex gap-1 overflow-x-auto mobile-nav">
-              {tabs.map(t => (
-                <button key={t.id} onClick={() => nav(t.id)}
-                  className={`px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-all whitespace-nowrap ${
-                    view === t.id || (view === "member-detail" && t.id === "members") ? "bg-white text-blue-900" : "text-blue-200 hover:bg-blue-800"
-                  }`}>
-                  {t.icon}<span className="mobile-hide">{t.label}</span>
-                  {t.id === "issues" && issues.length > 0 && (
-                    <span className="badge bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">{issues.length}</span>
-                  )}
-                  {t.id === "onboarding" && (onboarding.length + applications.length) > 0 && (
-                    <span className="badge bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center">{onboarding.length + applications.length}</span>
-                  )}
-                </button>
-              ))}
-            </nav>
           </div>
+
+          {/* Navigation row */}
+          <nav className="flex items-center gap-0.5 overflow-x-auto mobile-nav pb-px -mb-px" style={{scrollbarWidth:'none'}}>
+            {tabs.map(t => {
+              const isActive = view === t.id || (view === "member-detail" && t.id === "members");
+              return (
+                <button key={t.id} onClick={() => nav(t.id)} className={`nav-item ${isActive ? "active" : ""}`}>
+                  {t.icon}<span className="mobile-hide">{t.label}</span>
+                  {t.id === "issues" && issues.length > 0 && <span className="nav-badge nav-badge-red">{issues.length}</span>}
+                  {t.id === "onboarding" && (onboarding.length + applications.length) > 0 && <span className="nav-badge nav-badge-amber">{onboarding.length + applications.length}</span>}
+                </button>
+              );
+            })}
+          </nav>
         </div>
+        <div style={{height:'1px', background:'linear-gradient(90deg, transparent, rgba(255,255,255,0.08) 20%, rgba(255,255,255,0.08) 80%, transparent)'}}/>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-6">
+      <main className="max-w-[1360px] mx-auto px-5 py-6">
         {view === "dashboard" && <Dashboard members={members} issues={issues} onboarding={onboarding} applications={applications} nav={nav} config={config} onExport={() => exportToExcel(DB.members, DB.config)} refreshFromSheet={refreshFromSheet} useSheet={useSheet}/>}
         {view === "enroll" && <EnrollWizard zones={zones} config={config} onDone={() => { refresh(); nav("members"); }}/>}
         {view === "onboarding" && <OnboardingQueue onboarding={onboarding} applications={applications} refresh={refresh} nav={nav} zones={zones} config={config} onApproveApp={async (app) => {
@@ -1372,17 +1438,31 @@ function GrowthChart({ data, height = 160 }) {
   );
 }
 
-/* ── Animated Stat Card ── */
-function StatCard({ label, value, gradient, icon, click, pulse, sub }) {
+/* ── Animated Stat Card (Premium) ── */
+function StatCard({ label, value, color, icon, click, pulse, sub }) {
   const display = useCountUp(typeof value === "number" ? value : 0);
+  const colorMap = {
+    blue: { accent:'#2563eb', bg:'#eff6ff', text:'#1e40af', icon:'#3b82f6' },
+    green: { accent:'#059669', bg:'#ecfdf5', text:'#065f46', icon:'#10b981' },
+    red: { accent:'#dc2626', bg:'#fef2f2', text:'#991b1b', icon:'#ef4444' },
+    amber: { accent:'#d97706', bg:'#fffbeb', text:'#92400e', icon:'#f59e0b' },
+    purple: { accent:'#7c3aed', bg:'#f5f3ff', text:'#5b21b6', icon:'#8b5cf6' },
+    emerald: { accent:'#059669', bg:'#ecfdf5', text:'#065f46', icon:'#10b981' },
+  };
+  const c = colorMap[color] || colorMap.blue;
   return (
-    <button onClick={click} className={`relative overflow-hidden rounded-2xl text-left transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.98] ${click ? "cursor-pointer" : "cursor-default"} w-full`}
-      style={{background: gradient, minHeight:"110px"}}>
-      <div className="p-5 h-full flex flex-col justify-between">
-        {pulse && <span className="absolute top-4 right-4 w-2.5 h-2.5 rounded-full bg-white/80 animate-pulse"/>}
-        <div className="flex items-center gap-2 mb-2">{icon}<span className="text-[11px] font-semibold text-white/80 uppercase tracking-wider">{label}</span></div>
-        <div className="text-3xl font-extrabold text-white leading-none">{typeof value === "number" ? display : value}</div>
-        {sub && <div className="text-[10px] text-white/60 mt-1.5 font-medium">{sub}</div>}
+    <button onClick={click} className={`metric-card text-left w-full ${click ? "cursor-pointer" : "cursor-default"}`}>
+      <div className="accent-bar" style={{background: c.accent}}/>
+      <div className="flex items-start justify-between mb-3">
+        <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{background: c.bg}}>
+          <span style={{color: c.icon}}>{icon}</span>
+        </div>
+        {pulse && <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse mt-1"/>}
+      </div>
+      <div className="text-metric text-slate-900">{typeof value === "number" ? display : value}</div>
+      <div className="flex items-center justify-between mt-1.5">
+        <span className="text-[12px] font-medium text-slate-500">{label}</span>
+        {sub && <span className="text-[11px] text-slate-400 font-medium">{sub}</span>}
       </div>
     </button>
   );
@@ -1513,103 +1593,90 @@ function Dashboard({ members, issues, onboarding, applications = [], nav, config
   const pendingTotal = onboarding.length + applications.length;
 
   return (
-    <div className="space-y-5 max-w-6xl mx-auto">
-      {/* Welcome Banner */}
-      <div className="rounded-2xl text-white relative overflow-hidden" style={{background:"linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #1e40af 100%)"}}>
-        <div className="absolute inset-0 opacity-[0.06]" style={{backgroundImage:"url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")"}}/>
-        <div className="relative z-10 px-6 py-5 md:px-8 md:py-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div className="min-w-0">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center flex-shrink-0">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white"><path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v4M12 14v4M16 14v4"/></svg>
-                </div>
-                <div className="min-w-0">
-                  <h1 className="text-lg md:text-xl font-bold tracking-tight leading-tight truncate">{config.associationName || "BOIPRA"} — South Zone</h1>
-                  <p className="text-blue-300/80 text-[11px] font-medium tracking-wide">Member Management System</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 text-xs text-blue-200/70 ml-[52px]">
-                <span>{dateStr}</span>
-                <span className="text-blue-400/40">|</span>
-                <span>{greeting}</span>
-                <span className="text-blue-400/40">|</span>
-                <span><strong className="text-white font-semibold">{active}</strong> active members</span>
-                {pendingTotal > 0 && <><span className="text-blue-400/40">|</span><span><strong className="text-amber-300 font-semibold">{pendingTotal}</strong> pending</span></>}
-                {issues.length > 0 && <><span className="text-blue-400/40">|</span><span><strong className="text-red-300 font-semibold">{issues.length}</strong> {issues.length === 1 ? "issue" : "issues"}</span></>}
-              </div>
-            </div>
-            <div className="flex gap-2 flex-shrink-0">
-              <button onClick={() => nav("enroll")} className="bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition flex items-center gap-2 border border-white/10">
-                <UserPlus size={14}/>New Member
-              </button>
-              <button onClick={onExport} className="bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition flex items-center gap-2 border border-white/10">
-                <Download size={14}/>Export
-              </button>
-            </div>
+    <div className="space-y-5">
+      {/* Command Center Header */}
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <h1 className="text-[22px] font-bold text-slate-900 tracking-[-0.02em]">{greeting}</h1>
           </div>
+          <p className="text-[13px] text-slate-500 font-medium">{config.associationName || "BOIPRA — South Zone"} &middot; {dateStr}</p>
+        </div>
+        <div className="flex gap-2 flex-shrink-0">
+          <button onClick={() => nav("enroll")} className="bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-semibold px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shadow-sm hover:shadow">
+            <UserPlus size={14}/>New Member
+          </button>
+          <button onClick={onExport} className="bg-white hover:bg-slate-50 text-slate-700 text-[13px] font-semibold px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 border border-slate-200 shadow-sm">
+            <Download size={14}/>Export
+          </button>
         </div>
       </div>
 
-      {/* Stat Cards — 3x2 on mobile, 6 across on desktop */}
+      {/* Metric Cards — 3x2 on mobile, 6 across on desktop */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <StatCard label="Total" value={total} gradient="linear-gradient(145deg, #1e3a5f, #3b82f6)" icon={<Users size={14} className="text-white/70"/>} click={() => nav("members")} sub={`${active} active`}/>
-        <StatCard label="Active" value={active} gradient="linear-gradient(145deg, #064e3b, #10b981)" icon={<CheckCircle size={14} className="text-white/70"/>} click={() => nav("members")} sub={`${Math.round((active/total)*100)||0}% of total`}/>
-        <StatCard label="Removed" value={removed + deceased} gradient="linear-gradient(145deg, #7f1d1d, #ef4444)" icon={<XCircle size={14} className="text-white/70"/>} click={() => nav("members")} sub={`${deceased} deceased`}/>
-        <StatCard label="Pending" value={pendingTotal} gradient="linear-gradient(145deg, #78350f, #f59e0b)" icon={<Clock size={14} className="text-white/70"/>} click={() => nav("onboarding")} pulse={pendingTotal > 0} sub="awaiting approval"/>
-        <StatCard label="Issues" value={issues.length} gradient={issues.length ? "linear-gradient(145deg, #7f1d1d, #dc2626)" : "linear-gradient(145deg, #064e3b, #22c55e)"} icon={<AlertTriangle size={14} className="text-white/70"/>} click={() => nav("issues")} sub={issues.length ? "needs attention" : "all clear"}/>
-        <StatCard label="Avg Age" value={avgAge} gradient="linear-gradient(145deg, #4c1d95, #8b5cf6)" icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white/70"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a8.38 8.38 0 0 1 13 0"/></svg>} sub="years average"/>
+        <StatCard label="Total Members" value={total} color="blue" icon={<Users size={16}/>} click={() => nav("members")} sub={`${active} active`}/>
+        <StatCard label="Active" value={active} color="green" icon={<CheckCircle size={16}/>} click={() => nav("members")} sub={`${Math.round((active/total)*100)||0}%`}/>
+        <StatCard label="Removed" value={removed + deceased} color="red" icon={<XCircle size={16}/>} click={() => nav("members")} sub={`${deceased} deceased`}/>
+        <StatCard label="Pending" value={pendingTotal} color="amber" icon={<Clock size={16}/>} click={() => nav("onboarding")} pulse={pendingTotal > 0} sub="approval"/>
+        <StatCard label="Issues" value={issues.length} color={issues.length ? "red" : "green"} icon={<AlertTriangle size={16}/>} click={() => nav("issues")} sub={issues.length ? "attention" : "clear"}/>
+        <StatCard label="Avg Age" value={avgAge} color="purple" icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a8.38 8.38 0 0 1 13 0"/></svg>} sub="years"/>
       </div>
 
-      {/* Overdue Alert */}
+      {/* Overdue Alert — Premium CRM Panel */}
       {overdueMembers.length > 0 && (
-        <div className="rounded-2xl border border-red-200 bg-gradient-to-br from-red-50 via-white to-orange-50 p-5 md:p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-red-800 text-sm flex items-center gap-2.5">
-              <span className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-red-600"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-              </span>
-              {overdueMembers.length} Members Overdue for Renewal
-            </h3>
-            <button onClick={() => nav("members")} className="text-xs text-red-600 hover:text-red-800 font-semibold flex items-center gap-1 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition">View All <ChevronRight size={12}/></button>
+        <div className="section-card overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-red-500"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              </div>
+              <div>
+                <h3 className="font-semibold text-slate-900 text-[13px]">{overdueMembers.length} Members Overdue for Renewal</h3>
+                <p className="text-[11px] text-slate-400 font-medium">Subscription expired — action required</p>
+              </div>
+            </div>
+            <button onClick={() => nav("members")} className="text-[12px] text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition">View All <ChevronRight size={12}/></button>
           </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+          <div>
             {overdueMembers.slice(0, 6).map((m, i) => (
-              <div key={i} className="flex items-center justify-between bg-white rounded-xl px-4 py-3 border border-red-100/60 hover:shadow-sm transition">
-                <div className="min-w-0">
-                  <button onClick={() => nav("member-detail", m.msno)} className="text-sm font-semibold text-gray-900 hover:text-blue-700 truncate block transition">{m.name}</button>
-                  <span className="text-xs text-gray-400">MS.NO {m.msno}</span>
+              <div key={i} className="overdue-row">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0 text-[11px] font-bold text-slate-500">{(m.name || "?")[0]}</div>
+                  <div className="min-w-0">
+                    <button onClick={() => nav("member-detail", m.msno)} className="text-[13px] font-semibold text-slate-800 hover:text-blue-600 truncate block transition">{m.name}</button>
+                    <span className="text-[11px] text-slate-400 font-medium">MS.NO {m.msno} &middot; {m.centre || m.zone || ""}</span>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-                  <span className="text-[11px] font-bold text-red-700 bg-red-50 border border-red-200 px-2.5 py-1 rounded-lg">{m.overdueTxt}</span>
+                  <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-md ${m.overdueDays > 365 ? "bg-red-50 text-red-700 border border-red-200" : m.overdueDays > 180 ? "bg-orange-50 text-orange-700 border border-orange-200" : "bg-amber-50 text-amber-700 border border-amber-200"}`}>{m.overdueTxt}</span>
                   {m.mobile && <a href={`https://wa.me/91${String(m.mobile).replace(/\D/g,'').slice(-10)}`} target="_blank" rel="noopener"
-                    className="w-8 h-8 rounded-lg bg-green-500 flex items-center justify-center hover:bg-green-600 transition shadow-sm" title="WhatsApp">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 0 0 .611.611l4.458-1.495A11.952 11.952 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.387 0-4.592-.836-6.318-2.228l-.143-.113-3.013 1.01 1.01-3.013-.113-.143A9.952 9.952 0 0 1 2 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg>
+                    className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center hover:bg-emerald-600 transition" title="WhatsApp">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 0 0 .611.611l4.458-1.495A11.952 11.952 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.387 0-4.592-.836-6.318-2.228l-.143-.113-3.013 1.01 1.01-3.013-.113-.143A9.952 9.952 0 0 1 2 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg>
                   </a>}
                 </div>
               </div>
             ))}
           </div>
-          {overdueMembers.length > 6 && <p className="text-xs text-red-400 mt-3 font-medium text-center">+ {overdueMembers.length - 6} more overdue members</p>}
+          {overdueMembers.length > 6 && <div className="px-5 py-3 bg-slate-50 border-t border-slate-100 text-center"><span className="text-[12px] text-slate-500 font-medium">+ {overdueMembers.length - 6} more overdue members</span></div>}
         </div>
       )}
 
-      {/* Charts Row — Zone Donut + Membership Growth */}
+      {/* Charts Row — Zone + Growth */}
       <div className="grid md:grid-cols-2 gap-4">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <h3 className="font-semibold text-gray-900 mb-5 text-sm flex items-center gap-2.5">
+        <div className="section-card p-5">
+          <h3 className="font-semibold text-slate-900 mb-5 text-[13px] flex items-center gap-2.5">
             <span className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-600"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10"/><path d="M2 12h20"/></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10"/><path d="M2 12h20"/></svg>
             </span>
             Members by Zone
           </h3>
-          {zoneData.length === 0 ? <p className="text-gray-400 text-sm py-8 text-center">No zone data available.</p> : <ZoneBarChart data={zoneData}/>}
+          {zoneData.length === 0 ? <p className="text-slate-400 text-[13px] py-8 text-center">No zone data available.</p> : <ZoneBarChart data={zoneData}/>}
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <h3 className="font-semibold text-gray-900 mb-5 text-sm flex items-center gap-2.5">
+        <div className="section-card p-5">
+          <h3 className="font-semibold text-slate-900 mb-5 text-[13px] flex items-center gap-2.5">
             <span className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-blue-600"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
             </span>
             Membership Growth
           </h3>
@@ -1619,50 +1686,48 @@ function Dashboard({ members, issues, onboarding, applications = [], nav, config
 
       {/* Dues + Birthdays Row */}
       <div className="grid md:grid-cols-2 gap-4">
-        {/* Dues Overview */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <h3 className="font-semibold text-gray-900 mb-5 text-sm flex items-center gap-2.5">
-            <span className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center"><ClipboardList size={14} className="text-blue-600"/></span>
+        <div className="section-card p-5">
+          <h3 className="font-semibold text-slate-900 mb-5 text-[13px] flex items-center gap-2.5">
+            <span className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center"><ClipboardList size={14} className="text-emerald-600"/></span>
             Membership Dues
           </h3>
           <div className="space-y-4">
             <div>
-              <div className="flex justify-between text-xs mb-1.5"><span className="text-gray-600 font-medium">Paid Up</span><span className="font-bold text-green-700">{duesInfo.paidUp}</span></div>
-              <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden"><div className="bg-green-500 h-full rounded-full transition-all duration-700" style={{width:`${(duesInfo.paidUp/duesTotal)*100}%`}}/></div>
+              <div className="flex justify-between text-[12px] mb-1.5"><span className="text-slate-500 font-medium">Paid Up</span><span className="font-semibold text-emerald-700">{duesInfo.paidUp}</span></div>
+              <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden"><div className="bg-emerald-500 h-full rounded-full transition-all duration-700" style={{width:`${(duesInfo.paidUp/duesTotal)*100}%`}}/></div>
             </div>
             <div>
-              <div className="flex justify-between text-xs mb-1.5"><span className="text-gray-600 font-medium">Due for Renewal</span><span className="font-bold text-amber-700">{duesInfo.dueForRenewal}</span></div>
-              <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden"><div className="bg-amber-500 h-full rounded-full transition-all duration-700" style={{width:`${(duesInfo.dueForRenewal/duesTotal)*100}%`}}/></div>
+              <div className="flex justify-between text-[12px] mb-1.5"><span className="text-slate-500 font-medium">Due for Renewal</span><span className="font-semibold text-amber-700">{duesInfo.dueForRenewal}</span></div>
+              <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden"><div className="bg-amber-400 h-full rounded-full transition-all duration-700" style={{width:`${(duesInfo.dueForRenewal/duesTotal)*100}%`}}/></div>
             </div>
             <div>
-              <div className="flex justify-between text-xs mb-1.5"><span className="text-gray-600 font-medium">No Payment Info</span><span className="font-bold text-gray-500">{duesInfo.noInfo}</span></div>
-              <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden"><div className="bg-gray-300 h-full rounded-full transition-all duration-700" style={{width:`${(duesInfo.noInfo/duesTotal)*100}%`}}/></div>
+              <div className="flex justify-between text-[12px] mb-1.5"><span className="text-slate-500 font-medium">No Payment Info</span><span className="font-semibold text-slate-400">{duesInfo.noInfo}</span></div>
+              <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden"><div className="bg-slate-300 h-full rounded-full transition-all duration-700" style={{width:`${(duesInfo.noInfo/duesTotal)*100}%`}}/></div>
             </div>
           </div>
-          <button onClick={() => nav("members")} className="text-xs text-blue-600 hover:text-blue-800 font-semibold mt-4 flex items-center gap-1 transition">View Details <ChevronRight size={12}/></button>
+          <button onClick={() => nav("members")} className="text-[12px] text-blue-600 hover:text-blue-700 font-semibold mt-5 flex items-center gap-1 transition">View Details <ChevronRight size={12}/></button>
         </div>
 
-        {/* Birthdays */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <h3 className="font-semibold text-gray-900 mb-5 text-sm flex items-center gap-2.5">
-            <span className="w-7 h-7 rounded-lg bg-pink-50 flex items-center justify-center">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-pink-500"><path d="M20 21v-2a4 4 0 0 0-3-3.87"/><path d="M4 21v-2a4 4 0 0 1 3-3.87"/><circle cx="12" cy="7" r="4"/></svg>
+        <div className="section-card p-5">
+          <h3 className="font-semibold text-slate-900 mb-5 text-[13px] flex items-center gap-2.5">
+            <span className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-3-3.87"/><path d="M4 21v-2a4 4 0 0 1 3-3.87"/><circle cx="12" cy="7" r="4"/></svg>
             </span>
             Upcoming Birthdays
           </h3>
-          {birthdays.length === 0 ? <p className="text-gray-400 text-sm py-4 text-center">No birthdays this month or next.</p> : (
-            <div className="space-y-1">
+          {birthdays.length === 0 ? <p className="text-slate-400 text-[13px] py-4 text-center">No birthdays this month or next.</p> : (
+            <div className="space-y-0.5">
               {birthdays.slice(0, 8).map((b, i) => (
-                <div key={i} className={`flex items-center justify-between py-2 px-3 rounded-xl text-sm transition ${b.isToday ? "bg-pink-50 border border-pink-200" : "hover:bg-gray-50"}`}>
-                  <button onClick={() => nav("member-detail", b.msno)} className="text-gray-800 hover:text-blue-700 font-medium truncate max-w-[50%] text-left transition">{b.name}</button>
+                <div key={i} className={`flex items-center justify-between py-2.5 px-3 rounded-lg text-[13px] transition ${b.isToday ? "bg-violet-50 border border-violet-200" : "hover:bg-slate-50"}`}>
+                  <button onClick={() => nav("member-detail", b.msno)} className="text-slate-800 hover:text-blue-600 font-medium truncate max-w-[50%] text-left transition">{b.name}</button>
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-400 font-medium">{b.date}</span>
-                    <span className="text-[11px] font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md">turns {b.turnsAge}</span>
-                    {b.isToday && <span className="text-[10px] bg-pink-500 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">Today</span>}
+                    <span className="text-[11px] text-slate-400 font-medium">{b.date}</span>
+                    <span className="text-[11px] font-semibold text-violet-700 bg-violet-50 px-2 py-0.5 rounded-md border border-violet-100">turns {b.turnsAge}</span>
+                    {b.isToday && <span className="text-[10px] bg-violet-600 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">Today</span>}
                   </div>
                 </div>
               ))}
-              {birthdays.length > 8 && <p className="text-xs text-gray-400 mt-2 text-center">+ {birthdays.length - 8} more</p>}
+              {birthdays.length > 8 && <p className="text-[11px] text-slate-400 mt-2 text-center">+ {birthdays.length - 8} more</p>}
             </div>
           )}
         </div>
@@ -1670,47 +1735,45 @@ function Dashboard({ members, issues, onboarding, applications = [], nav, config
 
       {/* Centre Distribution + Recent Activity */}
       <div className="grid md:grid-cols-2 gap-4">
-        {/* Members by Centre */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <h3 className="font-semibold text-gray-900 mb-5 text-sm flex items-center gap-2.5">
+        <div className="section-card p-5">
+          <h3 className="font-semibold text-slate-900 mb-5 text-[13px] flex items-center gap-2.5">
             <span className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center"><BarChart3 size={14} className="text-indigo-600"/></span>
             Members by Centre
           </h3>
-          {topCentres.length === 0 ? <p className="text-gray-400 text-sm py-4 text-center">No active members yet.</p> : (
-            <div className="space-y-2.5">
+          {topCentres.length === 0 ? <p className="text-slate-400 text-[13px] py-4 text-center">No active members yet.</p> : (
+            <div className="space-y-2">
               {topCentres.map(([c, n], idx) => (
                 <div key={c} className="flex items-center gap-3">
-                  <span className="text-xs text-gray-600 w-20 truncate font-medium text-right">{c}</span>
-                  <div className="flex-1 bg-gray-50 rounded-full h-6 overflow-hidden">
-                    <div className={`${barColors[idx % barColors.length]} h-full rounded-full flex items-center justify-end pr-2.5 transition-all duration-500`} style={{width:`${Math.max((n/maxC)*100,18)}%`}}>
-                      <span className="text-[11px] font-bold text-white drop-shadow-sm">{n}</span>
+                  <span className="text-[11px] text-slate-500 w-20 truncate font-medium text-right">{c}</span>
+                  <div className="flex-1 bg-slate-50 rounded h-[22px] overflow-hidden">
+                    <div className={`${barColors[idx % barColors.length]} h-full rounded flex items-center justify-end pr-2.5 transition-all duration-500`} style={{width:`${Math.max((n/maxC)*100,18)}%`}}>
+                      <span className="text-[10px] font-bold text-white">{n}</span>
                     </div>
                   </div>
-                  <span className="text-[11px] text-gray-400 w-10 text-right font-medium">{Math.round((n/totalActive)*100)}%</span>
+                  <span className="text-[10px] text-slate-400 w-10 text-right font-medium">{Math.round((n/totalActive)*100)}%</span>
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* Recent Activity */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <h3 className="font-semibold text-gray-900 mb-5 text-sm flex items-center gap-2.5">
+        <div className="section-card p-5">
+          <h3 className="font-semibold text-slate-900 mb-5 text-[13px] flex items-center gap-2.5">
             <span className="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center"><Clock size={14} className="text-amber-600"/></span>
             Recent Activity
-            <span className="text-[11px] text-gray-400 font-normal ml-1">(90 days)</span>
+            <span className="text-[11px] text-slate-400 font-normal ml-1">(90 days)</span>
           </h3>
-          {recentActivity.length === 0 ? <p className="text-gray-400 text-sm py-4 text-center">No recent activity.</p> : (
-            <div className="space-y-1">
+          {recentActivity.length === 0 ? <p className="text-slate-400 text-[13px] py-4 text-center">No recent activity.</p> : (
+            <div className="space-y-0.5">
               {recentActivity.map((item, i) => (
-                <div key={i} className="flex items-center justify-between py-2 px-3 rounded-xl text-sm hover:bg-gray-50 transition">
+                <div key={i} className="flex items-center justify-between py-2.5 px-3 rounded-lg text-[13px] hover:bg-slate-50 transition">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${item.action === "Joined" ? "bg-green-500" : item.action === "Deceased" ? "bg-gray-400" : "bg-red-500"}`}/>
-                    <button onClick={() => nav("member-detail", item.msno)} className="text-gray-800 hover:text-blue-700 font-medium truncate max-w-[160px] text-left transition">{item.name}</button>
+                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${item.action === "Joined" ? "bg-emerald-500" : item.action === "Deceased" ? "bg-slate-400" : "bg-red-500"}`}/>
+                    <button onClick={() => nav("member-detail", item.msno)} className="text-slate-800 hover:text-blue-600 font-medium truncate max-w-[160px] text-left transition">{item.name}</button>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg ${item.action === "Joined" ? "bg-green-50 text-green-700 border border-green-200" : item.action === "Deceased" ? "bg-gray-50 text-gray-500 border border-gray-200" : "bg-red-50 text-red-700 border border-red-200"}`}>{item.action}</span>
-                    <span className="text-[11px] text-gray-400 font-medium">{item.date}</span>
+                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md ${item.action === "Joined" ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : item.action === "Deceased" ? "bg-slate-50 text-slate-500 border border-slate-200" : "bg-red-50 text-red-700 border border-red-100"}`}>{item.action}</span>
+                    <span className="text-[11px] text-slate-400 font-medium">{item.date}</span>
                   </div>
                 </div>
               ))}
@@ -1720,43 +1783,27 @@ function Dashboard({ members, issues, onboarding, applications = [], nav, config
       </div>
 
       {/* Quick Actions */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <h3 className="font-semibold text-gray-900 mb-4 text-sm flex items-center gap-2.5">
-          <span className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-600"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span>
+      <div className="section-card p-5">
+        <h3 className="font-semibold text-slate-900 mb-4 text-[13px] flex items-center gap-2.5">
+          <span className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span>
           Quick Actions
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <button onClick={() => nav("enroll")} className="flex flex-col items-center gap-2.5 p-5 rounded-2xl border border-gray-100 hover:shadow-md hover:border-blue-200 transition-all duration-200 group bg-gradient-to-b from-white to-blue-50/50">
-            <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center group-hover:scale-110 transition-transform"><UserPlus size={20} className="text-blue-600"/></div>
-            <span className="text-xs font-semibold text-gray-700 text-center leading-tight">Enroll Member</span>
-          </button>
-          <button onClick={() => nav("printform")} className="flex flex-col items-center gap-2.5 p-5 rounded-2xl border border-gray-100 hover:shadow-md hover:border-cyan-200 transition-all duration-200 group bg-gradient-to-b from-white to-cyan-50/50">
-            <div className="w-11 h-11 rounded-xl bg-cyan-100 flex items-center justify-center group-hover:scale-110 transition-transform"><Printer size={20} className="text-cyan-600"/></div>
-            <span className="text-xs font-semibold text-gray-700 text-center leading-tight">Print Form</span>
-          </button>
-          <button onClick={() => nav("reports")} className="flex flex-col items-center gap-2.5 p-5 rounded-2xl border border-gray-100 hover:shadow-md hover:border-indigo-200 transition-all duration-200 group bg-gradient-to-b from-white to-indigo-50/50">
-            <div className="w-11 h-11 rounded-xl bg-indigo-100 flex items-center justify-center group-hover:scale-110 transition-transform"><FileText size={20} className="text-indigo-600"/></div>
-            <span className="text-xs font-semibold text-gray-700 text-center leading-tight">Reports</span>
-          </button>
-          <button onClick={() => nav("members")} className="flex flex-col items-center gap-2.5 p-5 rounded-2xl border border-gray-100 hover:shadow-md hover:border-teal-200 transition-all duration-200 group bg-gradient-to-b from-white to-teal-50/50">
-            <div className="w-11 h-11 rounded-xl bg-teal-100 flex items-center justify-center group-hover:scale-110 transition-transform"><Users size={20} className="text-teal-600"/></div>
-            <span className="text-xs font-semibold text-gray-700 text-center leading-tight">All Members</span>
-          </button>
-          <button onClick={() => nav("issues")} className="flex flex-col items-center gap-2.5 p-5 rounded-2xl border border-gray-100 hover:shadow-md hover:border-amber-200 transition-all duration-200 group bg-gradient-to-b from-white to-amber-50/50">
-            <div className="w-11 h-11 rounded-xl bg-amber-100 flex items-center justify-center group-hover:scale-110 transition-transform"><AlertTriangle size={20} className="text-amber-600"/></div>
-            <span className="text-xs font-semibold text-gray-700 text-center leading-tight">Data Issues</span>
-          </button>
-          {useSheet ? (
-            <button onClick={refreshFromSheet} className="flex flex-col items-center gap-2.5 p-5 rounded-2xl border border-gray-100 hover:shadow-md hover:border-purple-200 transition-all duration-200 group bg-gradient-to-b from-white to-purple-50/50">
-              <div className="w-11 h-11 rounded-xl bg-purple-100 flex items-center justify-center group-hover:scale-110 transition-transform"><RefreshCw size={20} className="text-purple-600"/></div>
-              <span className="text-xs font-semibold text-gray-700 text-center leading-tight">Sync Sheet</span>
+          {[
+            { action:() => nav("enroll"), icon:<UserPlus size={18}/>, label:"Enroll Member", color:"blue" },
+            { action:() => nav("printform"), icon:<Printer size={18}/>, label:"Print Form", color:"cyan" },
+            { action:() => nav("reports"), icon:<FileText size={18}/>, label:"Reports", color:"indigo" },
+            { action:() => nav("members"), icon:<Users size={18}/>, label:"All Members", color:"teal" },
+            { action:() => nav("issues"), icon:<AlertTriangle size={18}/>, label:"Data Issues", color:"amber" },
+            useSheet
+              ? { action:refreshFromSheet, icon:<RefreshCw size={18}/>, label:"Sync Sheet", color:"violet" }
+              : { action:onExport, icon:<Download size={18}/>, label:"Export Excel", color:"emerald" },
+          ].map((qa, i) => (
+            <button key={i} onClick={qa.action} className="quick-action group">
+              <div className={`w-10 h-10 rounded-xl bg-${qa.color}-50 flex items-center justify-center text-${qa.color}-600 group-hover:scale-105 transition-transform`}>{qa.icon}</div>
+              <span className="text-[12px] font-semibold text-slate-600 text-center leading-tight">{qa.label}</span>
             </button>
-          ) : (
-            <button onClick={onExport} className="flex flex-col items-center gap-2.5 p-5 rounded-2xl border border-gray-100 hover:shadow-md hover:border-green-200 transition-all duration-200 group bg-gradient-to-b from-white to-green-50/50">
-              <div className="w-11 h-11 rounded-xl bg-green-100 flex items-center justify-center group-hover:scale-110 transition-transform"><Download size={20} className="text-green-600"/></div>
-              <span className="text-xs font-semibold text-gray-700 text-center leading-tight">Export Excel</span>
-            </button>
-          )}
+          ))}
         </div>
       </div>
     </div>
