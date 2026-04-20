@@ -2128,7 +2128,40 @@ function OnboardingQueue({ onboarding, applications = [], refresh, nav, zones, c
     refresh();
   };
 
-  const removeApp = (idx) => { DB.onboarding.splice(idx, 1); refresh(); };
+  const removeApp = (idx) => {
+    const o = DB.onboarding[idx];
+    if (o) {
+      // Check if this corresponds to an existing member (by importedMSNO or PF)
+      const oPF = String(o.pf || "").trim();
+      const oMSNO = o.importedMSNO ? Number(o.importedMSNO) : null;
+      let existing = null;
+      if (oMSNO) existing = DB.members.find(m => m.msno === oMSNO);
+      if (!existing && oPF) existing = DB.members.find(m => String(m.pf || "").trim() === oPF);
+      if (existing) {
+        // Mark existing member as REMOVED
+        existing.status = "REMOVED";
+        existing.dateOfChange = new Date().toISOString().slice(0, 10);
+        existing.reasonForChange = "REMOVED";
+        existing.notes = (existing.notes ? existing.notes + "; " : "") + "Rejected from pending queue";
+      } else {
+        // Create a new REMOVED member record for Form 7
+        DB.members.push({
+          msno: oMSNO || DB.nextMSNO++, title: o.title || "", name: o.name || "", sowo: o.sowo || "",
+          pf: o.pf || "", category: o.category || "", centre: o.centre || "", zone: o.zone || "",
+          address: o.address || "", mobile: o.mobile || "", familyContact: "",
+          email: o.email || "", dob: o.dob || "", doj: o.doj || "",
+          status: "REMOVED", dor: o.dor || "", branchRetired: o.branchRetired || "",
+          branchPension: o.branchPension || "", familyPensioner: "",
+          bloodGroup: o.bloodGroup || "", applicationDate: o.dateReceived || "",
+          dateOfChange: new Date().toISOString().slice(0, 10),
+          reasonForChange: "REMOVED", notes: "Rejected from pending queue",
+          admissionFeePaid: "N", paymentMode: "", paymentRef: "", amountPaid: 0,
+        });
+      }
+    }
+    DB.onboarding.splice(idx, 1);
+    refresh();
+  };
 
   const startEdit = (idx) => {
     const o = DB.onboarding[idx];
@@ -2749,7 +2782,7 @@ function Reports({ members, config }) {
       {/* ═══════ RECONCILIATION TAB ═══════ */}
       {tab === "reconcile" && (
         <div className="space-y-4">
-          {/* Summary Card */}
+          {/* Reconciliation Formula Card */}
           <div className="bg-white rounded-xl shadow-sm border p-6">
             <h3 className="text-base font-bold text-gray-900 mb-1">Membership Reconciliation — {fyLabel}</h3>
             <p className="text-xs text-gray-500 mb-4">Opening + New Members − Removed = Closing Balance (Form 6 Active Count)</p>
@@ -2780,7 +2813,7 @@ function Reports({ members, config }) {
               </div>
             </div>
 
-            {/* Result row */}
+            {/* Tally Check */}
             <div className="mt-4 flex items-center justify-between bg-gray-50 rounded-lg p-4 border">
               <div className="text-sm text-gray-700">
                 <span className="font-semibold">{openingBalance}</span> + <span className="text-green-700 font-semibold">{addedCount}</span> − <span className="text-red-700 font-semibold">{removedCount}</span> = <span className="font-bold text-blue-900 text-lg">{openingBalance + addedCount - removedCount}</span>
@@ -2798,10 +2831,69 @@ function Reports({ members, config }) {
             </div>
           </div>
 
-          {/* Removal Breakdown */}
+          {/* Full Membership Summary Card */}
+          <div className="bg-white rounded-xl shadow-sm border p-6">
+            <h4 className="text-sm font-bold text-gray-900 mb-3">Complete Membership Summary — {fyLabel}</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 text-center">
+                <div className="text-2xl font-bold text-slate-800">{members.length}</div>
+                <div className="text-xs text-gray-600 mt-1 font-medium">Total in Master</div>
+                <div className="text-xs text-gray-400">All records</div>
+              </div>
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200 text-center">
+                <div className="text-2xl font-bold text-blue-800">{active.length}</div>
+                <div className="text-xs text-gray-600 mt-1 font-medium">Active (Form 6)</div>
+                <div className="text-xs text-gray-400">Current members</div>
+              </div>
+              <div className="bg-green-50 rounded-lg p-4 border border-green-200 text-center">
+                <div className="text-2xl font-bold text-green-700">{addedCount}</div>
+                <div className="text-xs text-gray-600 mt-1 font-medium">New Members</div>
+                <div className="text-xs text-gray-400">Added in {fyLabel}</div>
+              </div>
+              <div className="bg-red-50 rounded-lg p-4 border border-red-200 text-center">
+                <div className="text-2xl font-bold text-red-700">{removedCount}</div>
+                <div className="text-xs text-gray-600 mt-1 font-medium">Removed</div>
+                <div className="text-xs text-gray-400">Removed in {fyLabel}</div>
+              </div>
+            </div>
+
+            {/* Detailed breakdown row */}
+            <div className="mt-3 grid grid-cols-2 md:grid-cols-5 gap-2">
+              {(() => {
+                const deceased = members.filter(m => String(m.status || "").toUpperCase() === "DECEASED").length;
+                const removed = members.filter(m => String(m.status || "").toUpperCase() === "REMOVED").length;
+                const nonPayment = members.filter(m => String(m.status || "").toUpperCase() === "NON_PAYMENT").length;
+                const otherInactive = nonActive.length - deceased - removed - nonPayment;
+                return (<>
+                  <div className="bg-gray-50 rounded-lg px-3 py-2 border text-center">
+                    <div className="text-lg font-bold text-gray-700">{removed}</div>
+                    <div className="text-xs text-gray-500">Removed (All Time)</div>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg px-3 py-2 border text-center">
+                    <div className="text-lg font-bold text-gray-700">{deceased}</div>
+                    <div className="text-xs text-gray-500">Deceased (All Time)</div>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg px-3 py-2 border text-center">
+                    <div className="text-lg font-bold text-gray-700">{nonPayment}</div>
+                    <div className="text-xs text-gray-500">Non-Payment</div>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg px-3 py-2 border text-center">
+                    <div className="text-lg font-bold text-gray-700">{nonActive.length}</div>
+                    <div className="text-xs text-gray-500">Total Non-Active</div>
+                  </div>
+                  <div className="bg-blue-50 rounded-lg px-3 py-2 border text-center">
+                    <div className="text-lg font-bold text-blue-800">{active.length + nonActive.length}</div>
+                    <div className="text-xs text-gray-500">Grand Total</div>
+                  </div>
+                </>);
+              })()}
+            </div>
+          </div>
+
+          {/* Removal Breakdown by Reason */}
           {removedCount > 0 && (
             <div className="bg-white rounded-xl shadow-sm border p-4">
-              <h4 className="text-sm font-semibold text-gray-800 mb-2">Removal Breakdown</h4>
+              <h4 className="text-sm font-semibold text-gray-800 mb-2">Removal Breakdown — {fyLabel}</h4>
               <div className="flex gap-3 flex-wrap">
                 {removalBreakdown.map(([reason, count]) => (
                   <div key={reason} className="bg-gray-50 rounded-lg px-3 py-2 border text-sm">
@@ -2866,7 +2958,7 @@ function Reports({ members, config }) {
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b no-print">
           <span className="text-sm font-medium text-gray-700">
-            {tab === "form6" ? `${active.length} active members as of ${fyLabel}` : tab === "form7new" ? `${addedInFY.length} new members in ${fyLabel}` : tab === "form7del" ? `${(removedInFY.length > 0 ? removedInFY.length : allRemoved.length)} removed in ${fyLabel}` : tab === "form7" ? `${addedInFY.length} new + ${removedInFY.length > 0 ? removedInFY.length : allRemoved.length} removed in ${fyLabel}` : `${members.length} total members (${active.length} active) — ${fyLabel}`}
+            {tab === "form6" ? `${active.length} active members as of ${fyLabel}` : tab === "form7new" ? `${addedInFY.length} new members in ${fyLabel}` : tab === "form7del" ? `${removedInFY.length} removed in ${fyLabel}` : tab === "form7" ? `${addedInFY.length} new + ${removedInFY.length} removed in ${fyLabel}` : `${members.length} total members (${active.length} active) — ${fyLabel}`}
           </span>
           <button onClick={handlePrint} className="flex items-center gap-2 text-sm text-blue-900 font-medium hover:underline"><Printer size={14}/>Print</button>
         </div>
@@ -2928,11 +3020,9 @@ function Reports({ members, config }) {
 
           {/* FORM 7 — Removed / Deceased Only */}
           {tab === "form7del" && (() => {
-            const displayList = removedInFY.length > 0 ? removedInFY : allRemoved;
-            const showingAll = removedInFY.length === 0 && allRemoved.length > 0;
+            const displayList = removedInFY;
             return (<>
-              {showingAll && <p style={{fontSize:"11px",color:"#c05621",background:"#fffbeb",padding:"6px 10px",borderRadius:"4px",margin:"4px 0 8px"}}>No members have "Date of Change" within {fyLabel}. Showing all {allRemoved.length} non-active members.</p>}
-              {displayList.length === 0 ? <p style={{fontSize:"12px",color:"#999",padding:"20px 0",textAlign:"center"}}>No removed or deceased members found.</p> : (
+              {displayList.length === 0 ? <p style={{fontSize:"12px",color:"#999",padding:"20px 0",textAlign:"center"}}>No members removed or deceased in {fyLabel}.</p> : (
               <table className="w-full mt-3" style={{borderCollapse:"collapse",fontSize:"10px",tableLayout:"fixed"}}>
                 <colgroup>
                   <col style={{width:"4%"}}/><col style={{width:"6%"}}/><col style={{width:"14%"}}/><col style={{width:"10%"}}/>
@@ -2958,8 +3048,7 @@ function Reports({ members, config }) {
 
           {/* FORM 7 — Combined: New Members + Removed Members */}
           {tab === "form7" && (() => {
-            const displayRemoved = removedInFY.length > 0 ? removedInFY : allRemoved;
-            const showingAllRemoved = removedInFY.length === 0 && allRemoved.length > 0;
+            const displayRemoved = removedInFY;
             return (<>
               {/* ── Section A: New Members ── */}
               <div style={{marginTop:"12px",marginBottom:"4px",padding:"6px 10px",background:"#ecfdf5",borderLeft:"3px solid #059669",borderRadius:"0 4px 4px 0"}}>
@@ -2993,9 +3082,8 @@ function Reports({ members, config }) {
               <div style={{marginTop:"20px",marginBottom:"4px",padding:"6px 10px",background:"#fef2f2",borderLeft:"3px solid #dc2626",borderRadius:"0 4px 4px 0"}}>
                 <span style={{fontSize:"12px",fontWeight:"700",color:"#991b1b"}}>B. Members Removed / Deceased — {displayRemoved.length} member{displayRemoved.length !== 1 ? "s" : ""}</span>
               </div>
-              {showingAllRemoved && <p style={{fontSize:"11px",color:"#c05621",background:"#fffbeb",padding:"6px 10px",borderRadius:"4px",margin:"4px 0 8px"}}>No members have "Date of Change" within {fyLabel}. Showing all {allRemoved.length} non-active members.</p>}
               {displayRemoved.length === 0 ? (
-                <p style={{fontSize:"12px",color:"#999",padding:"12px 0",textAlign:"center"}}>No removed or deceased members found.</p>
+                <p style={{fontSize:"12px",color:"#999",padding:"12px 0",textAlign:"center"}}>No members removed or deceased in {fyLabel}.</p>
               ) : (
                 <table className="w-full mt-1" style={{borderCollapse:"collapse",fontSize:"10px",tableLayout:"fixed"}}>
                   <colgroup>
