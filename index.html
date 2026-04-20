@@ -1045,35 +1045,50 @@ function App() {
             });
             if (changed) updated++;
           } else {
-            // New member not in current DB by MSNO — queue for manual approval
+            // New member not in current DB by MSNO
             const importedPF = String(imported.pf || "").trim();
             if (importedPF && existingPFs.has(importedPF)) {
               skippedDupPF++;  // PF already exists under different MSNO — skip but count
             } else {
-              DB.onboarding.push({
-                appNo: DB.nextAppNo++,
-                dateReceived: new Date().toISOString().slice(0,10),
-                name: imported.name || "",
-                pf: imported.pf || "",
-                mobile: typeof imported.mobile === "number" ? String(imported.mobile) : (imported.mobile || ""),
-                email: imported.email || "",
-                title: imported.title || "",
-                sowo: imported.sowo || "",
-                category: imported.category || "",
-                centre: imported.centre || "",
-                zone: imported.zone || "",
-                address: imported.address || "",
-                doj: imported.doj || "",
-                dob: imported.dob || "",
-                dor: imported.dor || "",
-                branchRetired: imported.branchRetired || "",
-                branchPension: imported.branchPension || "",
-                bloodGroup: imported.bloodGroup || "",
-                importedMSNO: imported.msno || "",
-                source: "monthly-import",
-                formReceived:"N", pfVerified:"N", paymentReceived:"N", enteredInInputs:"N"
-              });
-              queued++;
+              // Non-ACTIVE members (REMOVED, DECEASED, etc.) go straight to master — no queue needed
+              const impStatus = String(imported.status || "").toUpperCase();
+              if (impStatus && impStatus !== "ACTIVE") {
+                imported.msno = imported.msno || DB.nextMSNO++;
+                if (imported.msno >= DB.nextMSNO) DB.nextMSNO = imported.msno + 1;
+                DB.members.push(imported);
+                if (importedPF) existingPFs.add(importedPF);
+                updated++;  // count as processed, not queued
+              } else {
+                // ACTIVE members without matching MSNO — queue for manual approval
+                DB.onboarding.push({
+                  appNo: DB.nextAppNo++,
+                  dateReceived: new Date().toISOString().slice(0,10),
+                  name: imported.name || "",
+                  pf: imported.pf || "",
+                  mobile: typeof imported.mobile === "number" ? String(imported.mobile) : (imported.mobile || ""),
+                  email: imported.email || "",
+                  title: imported.title || "",
+                  sowo: imported.sowo || "",
+                  category: imported.category || "",
+                  centre: imported.centre || "",
+                  zone: imported.zone || "",
+                  address: imported.address || "",
+                  doj: imported.doj || "",
+                  dob: imported.dob || "",
+                  dor: imported.dor || "",
+                  branchRetired: imported.branchRetired || "",
+                  branchPension: imported.branchPension || "",
+                  bloodGroup: imported.bloodGroup || "",
+                  importedMSNO: imported.msno || "",
+                  importedStatus: imported.status || "",
+                  importedDateOfChange: imported.dateOfChange || "",
+                  importedNotes: imported.notes || "",
+                  importedReasonForChange: imported.reasonForChange || "",
+                  source: "monthly-import",
+                  formReceived:"N", pfVerified:"N", paymentReceived:"N", enteredInInputs:"N"
+                });
+                queued++;
+              }
             }
           }
         });
@@ -1210,13 +1225,15 @@ function App() {
           // Check if this application corresponds to an existing member (by PF or imported MSNO)
           const appPF = String(app.PF_NO || "").trim();
           const appMSNO = app.IMPORTED_MSNO ? Number(app.IMPORTED_MSNO) : null;
+          // Use imported dateOfChange if available, otherwise today
+          const removalDate = app.IMPORTED_DATE_OF_CHANGE || new Date().toISOString().slice(0, 10);
           let existingMember = null;
           if (appMSNO) existingMember = DB.members.find(m => m.msno === appMSNO);
           if (!existingMember && appPF) existingMember = DB.members.find(m => String(m.pf || "").trim() === appPF);
           if (existingMember) {
             // Mark existing member as REMOVED
             existingMember.status = "REMOVED";
-            existingMember.dateOfChange = new Date().toISOString().slice(0, 10);
+            existingMember.dateOfChange = removalDate;
             existingMember.reasonForChange = "REMOVED";
             existingMember.notes = (existingMember.notes ? existingMember.notes + "; " : "") + "Rejected from pending queue";
             try { await sheetSaveAllMembers(DB.members); } catch(e) { console.warn("Sheet save failed:", e); }
@@ -1230,7 +1247,7 @@ function App() {
               status: "REMOVED", dor: app.DATE_OF_RETIREMENT || "", branchRetired: app.BRANCH_RETIRED_FROM || "",
               branchPension: app.BRANCH_PENSION_DRAWN || "", familyPensioner: app.FAMILY_PENSIONER || "",
               bloodGroup: app.BLOOD_GROUP || "", applicationDate: app.SUBMITTED_AT ? app.SUBMITTED_AT.slice(0,10) : "",
-              dateOfChange: new Date().toISOString().slice(0, 10),
+              dateOfChange: removalDate,
               reasonForChange: "REMOVED", notes: "Application rejected",
               admissionFeePaid: "N", paymentMode: "", paymentRef: "", amountPaid: 0,
             };
@@ -2146,6 +2163,10 @@ function OnboardingQueue({ onboarding, applications = [], refresh, nav, zones, c
   const removeApp = (idx) => {
     const o = DB.onboarding[idx];
     if (o) {
+      // Use original imported dateOfChange if available, otherwise today
+      const removalDate = o.importedDateOfChange || new Date().toISOString().slice(0, 10);
+      const removalReason = o.importedReasonForChange || "REMOVED";
+      const removalNotes = o.importedNotes || "Rejected from pending queue";
       // Check if this corresponds to an existing member (by importedMSNO or PF)
       const oPF = String(o.pf || "").trim();
       const oMSNO = o.importedMSNO ? Number(o.importedMSNO) : null;
@@ -2155,9 +2176,9 @@ function OnboardingQueue({ onboarding, applications = [], refresh, nav, zones, c
       if (existing) {
         // Mark existing member as REMOVED
         existing.status = "REMOVED";
-        existing.dateOfChange = new Date().toISOString().slice(0, 10);
-        existing.reasonForChange = "REMOVED";
-        existing.notes = (existing.notes ? existing.notes + "; " : "") + "Rejected from pending queue";
+        existing.dateOfChange = removalDate;
+        existing.reasonForChange = removalReason;
+        existing.notes = (existing.notes ? existing.notes + "; " : "") + removalNotes;
       } else {
         // Create a new REMOVED member record for Form 7
         DB.members.push({
@@ -2168,8 +2189,8 @@ function OnboardingQueue({ onboarding, applications = [], refresh, nav, zones, c
           status: "REMOVED", dor: o.dor || "", branchRetired: o.branchRetired || "",
           branchPension: o.branchPension || "", familyPensioner: "",
           bloodGroup: o.bloodGroup || "", applicationDate: o.dateReceived || "",
-          dateOfChange: new Date().toISOString().slice(0, 10),
-          reasonForChange: "REMOVED", notes: "Rejected from pending queue",
+          dateOfChange: removalDate,
+          reasonForChange: removalReason, notes: removalNotes,
           admissionFeePaid: "N", paymentMode: "", paymentRef: "", amountPaid: 0,
         });
       }
