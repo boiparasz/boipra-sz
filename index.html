@@ -1179,16 +1179,19 @@ function App() {
         {view === "enroll" && <EnrollWizard zones={zones} config={config} onDone={() => { refresh(); nav("members"); }}/>}
         {view === "onboarding" && <OnboardingQueue onboarding={onboarding} applications={applications} refresh={refresh} nav={nav} zones={zones} config={config} onApproveApp={async (app) => {
           // Convert application to member and add
+          const today = new Date().toISOString().slice(0,10);
           const newMember = {
             msno: DB.nextMSNO, title: app.TITLE || "", name: app.NAME || "", sowo: app.S_W_D_O || "",
             pf: app.PF_NO || "", category: app.CATEGORY || "", centre: app.CENTRE || "", zone: app.ZONE || "",
             address: app.ADDRESS || "", mobile: app.CONTACT_1 || "", familyContact: app.FAMILY_CONTACT || "",
-            email: app.EMAIL || "", dob: app.DOB || "", doj: new Date().toISOString().slice(0,10),
+            email: app.EMAIL || "", dob: app.DOB || "", doj: today,
             status: "ACTIVE", dor: app.DATE_OF_RETIREMENT || "", branchRetired: app.BRANCH_RETIRED_FROM || "",
             branchPension: app.BRANCH_PENSION_DRAWN || "", familyPensioner: app.FAMILY_PENSIONER || "",
             bloodGroup: app.BLOOD_GROUP || "", applicationDate: app.SUBMITTED_AT ? app.SUBMITTED_AT.slice(0,10) : "",
             admissionFeePaid: app.AMOUNT_PAID ? "Y" : "N", paymentMode: app.PAYMENT_MODE || "",
-            paymentRef: app.PAYMENT_REF || "", amountPaid: app.AMOUNT_PAID || "", notes: app.NOTES || "",
+            paymentRef: app.PAYMENT_REF || "", amountPaid: app.AMOUNT_PAID || "",
+            dateOfChange: today, reasonForChange: "NEW_MEMBER",
+            notes: (app.NOTES ? app.NOTES + "; " : "") + "NEW_MEMBER",
           };
           DB.members.push(newMember); DB.nextMSNO++;
           try { await sheetSaveAllMembers(DB.members.map(m => memberToSheetRow(m))); } catch(e) { console.warn("Sheet save failed:", e); }
@@ -1781,7 +1784,10 @@ function EnrollWizard({ zones, config, onDone }) {
   const prev = () => { if (step > 0) setStep(s => s-1); };
 
   const submit = () => {
-    const member = { ...form, msno: DB.nextMSNO++, applicationDate: new Date().toISOString().slice(0,10), doj: new Date().toISOString().slice(0,10), subscriptionYears: parseInt(form.subscriptionYears), amountPaid: parseInt(form.amountPaid) };
+    const today = new Date().toISOString().slice(0,10);
+    const member = { ...form, msno: DB.nextMSNO++, applicationDate: today, doj: today,
+      dateOfChange: today, reasonForChange: "NEW_MEMBER", notes: "NEW_MEMBER",
+      subscriptionYears: parseInt(form.subscriptionYears), amountPaid: parseInt(form.amountPaid) };
     DB.members.push(member);
     setSubmitted(true);
   };
@@ -2095,13 +2101,14 @@ function OnboardingQueue({ onboarding, applications = [], refresh, nav, zones, c
     const o = DB.onboarding[idx];
     if (o.formReceived === "Y" && o.pfVerified === "Y" && o.paymentReceived === "Y" && o.enteredInInputs === "Y") {
       const isImported = o.source === "monthly-import";
+      const today = new Date().toISOString().slice(0,10);
       DB.members.push({
         msno: isImported && o.importedMSNO ? Number(o.importedMSNO) : DB.nextMSNO++,
         title: o.title || "Mr.", name: o.name, sowo: o.sowo || "", pf: o.pf, status:"ACTIVE",
         zone: o.zone || zones[0]?.zone || "", centre: o.centre || zones[0]?.zone || "",
         mobile: o.mobile, email: o.email,
         address: o.address || "", dob: o.dob || "",
-        doj: o.doj || new Date().toISOString().slice(0,10), reasonForChange:"", dateOfChange:"",
+        doj: o.doj || today, reasonForChange:"NEW_MEMBER", dateOfChange: today,
         category: o.category || "OFF", dor: o.dor || "",
         branchRetired: o.branchRetired || "", branchPension: o.branchPension || "",
         familyPensioner: o.familyPensioner || "", familyContact:"",
@@ -2109,7 +2116,7 @@ function OnboardingQueue({ onboarding, applications = [], refresh, nav, zones, c
         admissionFeePaid: isImported ? "" : "Y", subscriptionYears: isImported ? 0 : 1,
         paymentMode:"", paymentRef:"",
         amountPaid: isImported ? 0 : config.admissionFee + config.annualSub,
-        notes: isImported ? "Added via monthly import" : "Added via onboarding queue"
+        notes: isImported ? "Added via monthly import; NEW_MEMBER" : "NEW_MEMBER"
       });
       // Update nextMSNO if the imported MS.NO is higher
       if (isImported && o.importedMSNO && Number(o.importedMSNO) >= DB.nextMSNO) {
