@@ -286,6 +286,14 @@ function sheetRowToMember(row) {
     if (row[sheetH] !== undefined && row[sheetH] !== null) m[appK] = row[sheetH];
   });
   m.msno = parseInt(m.msno) || 0;
+  // Normalize status
+  if (m.status) m.status = String(m.status).toUpperCase().trim();
+  if (!m.status) m.status = "ACTIVE";
+  if (m.status === "EXPIRED" || m.status === "DEAD") m.status = "DECEASED";
+  if (m.status === "INACTIVE" || m.status === "NON-PAYMENT" || m.status === "NONPAYMENT") m.status = "NON_PAYMENT";
+  // Normalize date fields from Google Sheets (may return different formats)
+  const dateFields = ["dob", "doj", "dor", "dateOfChange", "applicationDate"];
+  dateFields.forEach(f => { if (m[f]) m[f] = excelDateToStr(m[f]); });
   return m;
 }
 
@@ -1194,7 +1202,7 @@ function App() {
             notes: (app.NOTES ? app.NOTES + "; " : "") + "NEW_MEMBER",
           };
           DB.members.push(newMember); DB.nextMSNO++;
-          try { await sheetSaveAllMembers(DB.members.map(m => memberToSheetRow(m))); } catch(e) { console.warn("Sheet save failed:", e); }
+          try { await sheetSaveAllMembers(DB.members); } catch(e) { console.warn("Sheet save failed:", e); }
           try { await sheetDeleteApplication(app.APP_ID); } catch(e) {}
           setApplications(prev => prev.filter(a => a.APP_ID !== app.APP_ID));
           refresh();
@@ -1211,7 +1219,7 @@ function App() {
             existingMember.dateOfChange = new Date().toISOString().slice(0, 10);
             existingMember.reasonForChange = "REMOVED";
             existingMember.notes = (existingMember.notes ? existingMember.notes + "; " : "") + "Rejected from pending queue";
-            try { await sheetSaveAllMembers(DB.members.map(m => memberToSheetRow(m))); } catch(e) { console.warn("Sheet save failed:", e); }
+            try { await sheetSaveAllMembers(DB.members); } catch(e) { console.warn("Sheet save failed:", e); }
           } else {
             // New applicant rejected — create a REMOVED member record so it appears in Form 7
             const removedMember = {
@@ -1227,7 +1235,7 @@ function App() {
               admissionFeePaid: "N", paymentMode: "", paymentRef: "", amountPaid: 0,
             };
             DB.members.push(removedMember);
-            try { await sheetSaveAllMembers(DB.members.map(m => memberToSheetRow(m))); } catch(e) { console.warn("Sheet save failed:", e); }
+            try { await sheetSaveAllMembers(DB.members); } catch(e) { console.warn("Sheet save failed:", e); }
           }
           try { await sheetDeleteApplication(app.APP_ID); } catch(e) {}
           setApplications(prev => prev.filter(a => a.APP_ID !== app.APP_ID));
@@ -2689,16 +2697,37 @@ function Reports({ members, config }) {
   /* ── Normalize any date string to YYYY-MM-DD for comparison ── */
   const toISO = (d) => {
     if (!d) return "";
+    if (typeof d === "number") {
+      // Excel serial date
+      const dt = new Date((d - 25569) * 86400000);
+      return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth()+1).padStart(2,"0")}-${String(dt.getUTCDate()).padStart(2,"0")}`;
+    }
+    if (d instanceof Date && !isNaN(d.getTime())) return d.toISOString().slice(0, 10);
     if (typeof d === "string") {
       const s = d.trim();
       if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+      // Handle DD/MM/YYYY or MM/DD/YYYY — smart detection
       const m = s.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})$/);
-      if (m) return `${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`;
+      if (m) {
+        let p1 = Number(m[1]), p2 = Number(m[2]), yr = m[3];
+        // If first part > 12, it must be DD (DD/MM/YYYY)
+        if (p1 > 12) return `${yr}-${String(p2).padStart(2,"0")}-${String(p1).padStart(2,"0")}`;
+        // If second part > 12, it must be DD (MM/DD/YYYY)
+        if (p2 > 12) return `${yr}-${String(p1).padStart(2,"0")}-${String(p2).padStart(2,"0")}`;
+        // Both <= 12: assume DD/MM/YYYY (Indian/European format)
+        return `${yr}-${String(p2).padStart(2,"0")}-${String(p1).padStart(2,"0")}`;
+      }
       const m2 = s.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2})$/);
       if (m2) {
         const yr = Number(m2[3]) > 50 ? `19${m2[3]}` : `20${m2[3]}`;
-        return `${yr}-${m2[2].padStart(2,"0")}-${m2[1].padStart(2,"0")}`;
+        let p1 = Number(m2[1]), p2 = Number(m2[2]);
+        if (p1 > 12) return `${yr}-${String(p2).padStart(2,"0")}-${String(p1).padStart(2,"0")}`;
+        if (p2 > 12) return `${yr}-${String(p1).padStart(2,"0")}-${String(p2).padStart(2,"0")}`;
+        return `${yr}-${String(p2).padStart(2,"0")}-${String(p1).padStart(2,"0")}`;
       }
+      // Fallback: try native Date parse
+      const dt = new Date(s);
+      if (!isNaN(dt.getTime()) && dt.getFullYear() > 1900) return dt.toISOString().slice(0, 10);
     }
     return String(d);
   };
