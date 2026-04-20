@@ -1004,6 +1004,13 @@ function App() {
       if (mode === "replace") {
         DB.members = result.members;
         DB.nextMSNO = result.maxMSNO + 1;
+        // Return detailed breakdown for user verification
+        const activeCount = result.members.filter(m => String(m.status || "").toUpperCase() === "ACTIVE").length;
+        const removedCount = result.members.filter(m => String(m.status || "").toUpperCase() === "REMOVED").length;
+        const deceasedCount = result.members.filter(m => String(m.status || "").toUpperCase() === "DECEASED").length;
+        const newTagged = result.members.filter(m => String(m.notes || "").toUpperCase().includes("NEW_MEMBER")).length;
+        refresh();
+        return { total: result.members.length, activeCount, removedCount, deceasedCount, newTagged, mode: "replace" };
       } else if (mode === "monthly") {
         // Monthly Update: update existing members, send new ones to pending queue
         const existingByMSNO = {};
@@ -1018,7 +1025,7 @@ function App() {
             // Update existing member fields (only overwrite non-empty imported values)
             const updateFields = ["name","title","sowo","pf","category","centre","zone","address",
               "mobile","familyContact","email","dob","doj","dor","branchRetired","branchPension",
-              "familyPensioner","bloodGroup"];
+              "familyPensioner","bloodGroup","status","dateOfChange","notes","reasonForChange"];
             let changed = false;
             updateFields.forEach(f => {
               const impVal = imported[f] != null ? String(imported[f]).trim() : "";
@@ -1189,8 +1196,39 @@ function App() {
           setApplications(prev => prev.filter(a => a.APP_ID !== app.APP_ID));
           refresh();
         }} onRejectApp={async (app) => {
+          // Check if this application corresponds to an existing member (by PF or imported MSNO)
+          const appPF = String(app.PF_NO || "").trim();
+          const appMSNO = app.IMPORTED_MSNO ? Number(app.IMPORTED_MSNO) : null;
+          let existingMember = null;
+          if (appMSNO) existingMember = DB.members.find(m => m.msno === appMSNO);
+          if (!existingMember && appPF) existingMember = DB.members.find(m => String(m.pf || "").trim() === appPF);
+          if (existingMember) {
+            // Mark existing member as REMOVED
+            existingMember.status = "REMOVED";
+            existingMember.dateOfChange = new Date().toISOString().slice(0, 10);
+            existingMember.reasonForChange = "REMOVED";
+            existingMember.notes = (existingMember.notes ? existingMember.notes + "; " : "") + "Rejected from pending queue";
+            try { await sheetSaveAllMembers(DB.members.map(m => memberToSheetRow(m))); } catch(e) { console.warn("Sheet save failed:", e); }
+          } else {
+            // New applicant rejected — create a REMOVED member record so it appears in Form 7
+            const removedMember = {
+              msno: DB.nextMSNO++, title: app.TITLE || "", name: app.NAME || "", sowo: app.S_W_D_O || "",
+              pf: app.PF_NO || "", category: app.CATEGORY || "", centre: app.CENTRE || "", zone: app.ZONE || "",
+              address: app.ADDRESS || "", mobile: app.CONTACT_1 || "", familyContact: app.FAMILY_CONTACT || "",
+              email: app.EMAIL || "", dob: app.DOB || "", doj: "",
+              status: "REMOVED", dor: app.DATE_OF_RETIREMENT || "", branchRetired: app.BRANCH_RETIRED_FROM || "",
+              branchPension: app.BRANCH_PENSION_DRAWN || "", familyPensioner: app.FAMILY_PENSIONER || "",
+              bloodGroup: app.BLOOD_GROUP || "", applicationDate: app.SUBMITTED_AT ? app.SUBMITTED_AT.slice(0,10) : "",
+              dateOfChange: new Date().toISOString().slice(0, 10),
+              reasonForChange: "REMOVED", notes: "Application rejected",
+              admissionFeePaid: "N", paymentMode: "", paymentRef: "", amountPaid: 0,
+            };
+            DB.members.push(removedMember);
+            try { await sheetSaveAllMembers(DB.members.map(m => memberToSheetRow(m))); } catch(e) { console.warn("Sheet save failed:", e); }
+          }
           try { await sheetDeleteApplication(app.APP_ID); } catch(e) {}
           setApplications(prev => prev.filter(a => a.APP_ID !== app.APP_ID));
+          refresh();
         }}/>}
         {view === "members" && <MemberList members={members} nav={nav} refresh={refresh} zones={zones}/>}
         {view === "member-detail" && <MemberDetail msno={selectedMSNO} zones={zones} refresh={refresh} nav={nav}/>}
@@ -2630,32 +2668,26 @@ function Reports({ members, config }) {
   const active = members.filter(m => isActive(m)).sort((a,b) => a.msno - b.msno);
   const nonActive = members.filter(m => !isActive(m));
 
-  // Members added during this FY: either have NEW_MEMBER remark with dateOfChange in FY, or DOJ in FY
+  // Members added during this FY: tagged as NEW_MEMBER with dateOfChange in FY range
   const addedInFY = members.filter(m => {
-    const isNew = String(m.notes || m.reasonForChange || "").toUpperCase().includes("NEW_MEMBER") || String(m.notes || "").toUpperCase().includes("NEW MEMBER");
+    const isNew = String(m.notes || "").toUpperCase().includes("NEW_MEMBER") || String(m.notes || "").toUpperCase().includes("NEW MEMBER");
+    if (!isNew) return false;
     const doc = toISO(m.dateOfChange);
-    const doj = toISO(m.doj);
-    // If marked as new member, use dateOfChange for FY filtering
-    if (isNew && doc && doc >= fyStartDate && doc <= fyEndDate) return true;
-    // Fallback: DOJ within FY range
-    if (doj && doj >= fyStartDate && doj <= fyEndDate) return true;
-    return false;
+    return doc && doc >= fyStartDate && doc <= fyEndDate;
   }).sort((a,b) => a.msno - b.msno);
 
   // Members removed during this FY (non-active with dateOfChange in FY range)
   const removedInFY = nonActive.filter(m => {
     const d = toISO(m.dateOfChange);
-    if (d && d >= fyStartDate && d <= fyEndDate) return true;
-    return false;
+    return d && d >= fyStartDate && d <= fyEndDate;
   }).sort((a,b) => a.msno - b.msno);
 
   // All-time removed (for when user wants to see all non-active members regardless of FY)
   const allRemoved = nonActive.sort((a,b) => a.msno - b.msno);
 
   /* ── Reconciliation calculation ── */
-  // Opening balance = active count at start of FY
-  // = current active + removed during FY - added during FY
-  // (Because: Opening + Added - Removed = Current Active)
+  // Opening + Added − Removed = Closing (active count)
+  // Opening = Closing − Added + Removed
   const closingBalance = active.length;
   const addedCount = addedInFY.length;
   const removedCount = removedInFY.length;
@@ -2705,15 +2737,13 @@ function Reports({ members, config }) {
           ))}
         </div>
 
-        {/* FY Selector — shown for Form 7 and Reconciliation tabs */}
-        {(tab === "form7" || tab === "form7new" || tab === "form7del" || tab === "reconcile") && (
-          <div className="flex items-center gap-2 ml-auto">
-            <label className="text-sm font-medium text-gray-700">FY:</label>
-            <select value={fyStart} onChange={e => setFyStart(Number(e.target.value))} className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
-              {fyOptions.map(y => <option key={y} value={y}>{y}-{String(y+1).slice(2)}</option>)}
-            </select>
-          </div>
-        )}
+        {/* FY Selector — shown on all tabs */}
+        <div className="flex items-center gap-2 ml-auto">
+          <label className="text-sm font-medium text-gray-700">FY:</label>
+          <select value={fyStart} onChange={e => setFyStart(Number(e.target.value))} className="border border-gray-300 rounded-lg px-3 py-2.5 text-sm bg-white font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+            {fyOptions.map(y => <option key={y} value={y}>{y}-{String(y+1).slice(2)}</option>)}
+          </select>
+        </div>
       </div>
 
       {/* ═══════ RECONCILIATION TAB ═══════ */}
@@ -2722,25 +2752,31 @@ function Reports({ members, config }) {
           {/* Summary Card */}
           <div className="bg-white rounded-xl shadow-sm border p-6">
             <h3 className="text-base font-bold text-gray-900 mb-1">Membership Reconciliation — {fyLabel}</h3>
-            <p className="text-xs text-gray-500 mb-4">Opening Balance + Additions − Removals = Closing Balance (Form 6 count)</p>
+            <p className="text-xs text-gray-500 mb-4">Opening + New Members − Removed = Closing Balance (Form 6 Active Count)</p>
 
-            <div className="grid grid-cols-5 gap-3 text-center">
+            <div className="grid grid-cols-7 gap-2 text-center">
               <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                 <div className="text-2xl font-bold text-blue-900">{openingBalance}</div>
-                <div className="text-xs text-gray-600 mt-1">Opening Balance</div>
+                <div className="text-xs text-gray-600 mt-1">Opening</div>
                 <div className="text-xs text-gray-400">1 Apr {fyStart}</div>
               </div>
               <div className="flex items-center justify-center text-2xl font-bold text-gray-400">+</div>
               <div className="bg-green-50 rounded-lg p-4 border border-green-200 cursor-pointer hover:bg-green-100 transition" onClick={() => setShowAdded(!showAdded)}>
                 <div className="text-2xl font-bold text-green-700">{addedCount}</div>
-                <div className="text-xs text-gray-600 mt-1">Members Added</div>
-                <div className="text-xs text-blue-500 mt-1">{showAdded ? "▲ Hide" : "▼ View list"}</div>
+                <div className="text-xs text-gray-600 mt-1">New Members</div>
+                <div className="text-xs text-blue-500 mt-1">{showAdded ? "▲ Hide" : "▼ View"}</div>
               </div>
               <div className="flex items-center justify-center text-2xl font-bold text-gray-400">−</div>
               <div className="bg-red-50 rounded-lg p-4 border border-red-200 cursor-pointer hover:bg-red-100 transition" onClick={() => setShowRemoved(!showRemoved)}>
                 <div className="text-2xl font-bold text-red-700">{removedCount}</div>
-                <div className="text-xs text-gray-600 mt-1">Members Removed</div>
-                <div className="text-xs text-blue-500 mt-1">{showRemoved ? "▲ Hide" : "▼ View list"}</div>
+                <div className="text-xs text-gray-600 mt-1">Removed</div>
+                <div className="text-xs text-blue-500 mt-1">{showRemoved ? "▲ Hide" : "▼ View"}</div>
+              </div>
+              <div className="flex items-center justify-center text-2xl font-bold text-gray-400">=</div>
+              <div className="bg-indigo-50 rounded-lg p-4 border border-indigo-200">
+                <div className="text-2xl font-bold text-indigo-900">{closingBalance}</div>
+                <div className="text-xs text-gray-600 mt-1">Closing</div>
+                <div className="text-xs text-gray-400">31 Mar {fyStart + 1}</div>
               </div>
             </div>
 
@@ -2830,15 +2866,15 @@ function Reports({ members, config }) {
       <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b no-print">
           <span className="text-sm font-medium text-gray-700">
-            {tab === "form6" ? `${active.length} active members` : tab === "form7new" ? `${addedInFY.length} new members in ${fyLabel}` : tab === "form7del" ? `${(removedInFY.length > 0 ? removedInFY.length : allRemoved.length)} removed in ${fyLabel}` : tab === "form7" ? `${addedInFY.length} new + ${removedInFY.length > 0 ? removedInFY.length : allRemoved.length} removed in ${fyLabel}` : `${active.length} active members — full details`}
+            {tab === "form6" ? `${active.length} active members as of ${fyLabel}` : tab === "form7new" ? `${addedInFY.length} new members in ${fyLabel}` : tab === "form7del" ? `${(removedInFY.length > 0 ? removedInFY.length : allRemoved.length)} removed in ${fyLabel}` : tab === "form7" ? `${addedInFY.length} new + ${removedInFY.length > 0 ? removedInFY.length : allRemoved.length} removed in ${fyLabel}` : `${members.length} total members (${active.length} active) — ${fyLabel}`}
           </span>
           <button onClick={handlePrint} className="flex items-center gap-2 text-sm text-blue-900 font-medium hover:underline"><Printer size={14}/>Print</button>
         </div>
 
         <div id="report-content" className="p-4 overflow-x-auto">
           <h2 style={{color:"#1F3864"}}>{config.associationName} — South Zone</h2>
-          <h3 style={{color:"#666",fontSize:"13px"}}>{tab === "form6" ? "FORM 6 — List of Members (Register of Societies Act)" : tab === "form7new" ? `FORM 7 — New Members Added (${fyLabel})` : tab === "form7del" ? `FORM 7 — Members Removed / Deceased (${fyLabel})` : tab === "form7" ? `FORM 7 — Notice of Change Among Members (${fyLabel})` : "MASTER LIST — Complete Member Details"}</h3>
-          <p style={{fontSize:"11px",color:"#999"}}>Reg. No. {config.regNo} · Generated: {new Date().toISOString().slice(0,10)}{(tab === "form7" || tab === "form7new" || tab === "form7del") ? ` · Period: ${fyStartDate} to ${fyEndDate}` : ""}</p>
+          <h3 style={{color:"#666",fontSize:"13px"}}>{tab === "form6" ? `FORM 6 — List of Members (${fyLabel})` : tab === "form7new" ? `FORM 7 — New Members Added (${fyLabel})` : tab === "form7del" ? `FORM 7 — Members Removed / Deceased (${fyLabel})` : tab === "form7" ? `FORM 7 — Notice of Change Among Members (${fyLabel})` : `MASTER LIST — Complete Member Details (${fyLabel})`}</h3>
+          <p style={{fontSize:"11px",color:"#999"}}>Reg. No. {config.regNo} · Generated: {new Date().toISOString().slice(0,10)} · Period: {fyStartDate} to {fyEndDate}</p>
 
           {/* FORM 6 — Official Registrar Format */}
           {tab === "form6" && (
@@ -3478,15 +3514,17 @@ function SettingsView({ config, zones, refresh, members, onImport, onReset, onEx
     setImportMsg(""); setImportErr("");
     try {
       const result = await onImport(file, mode);
-      if (mode === "monthly" && typeof result === "object") {
+      if (mode === "monthly" && typeof result === "object" && !result.mode) {
         const parts = [];
         if (result.updated > 0) parts.push(`${result.updated} existing members updated`);
         if (result.queued > 0) parts.push(`${result.queued} new members sent to Pending Queue for approval`);
         if (result.skippedDupPF > 0) parts.push(`${result.skippedDupPF} skipped (PF already exists under different MS.NO)`);
         if (parts.length === 0) parts.push("No changes detected");
         setImportMsg(parts.join(". ") + ".");
+      } else if (result && result.mode === "replace") {
+        setImportMsg(`Replaced with ${result.total} members: ${result.activeCount} Active, ${result.removedCount} Removed, ${result.deceasedCount} Deceased. ${result.newTagged} tagged as NEW_MEMBER.`);
       } else {
-        setImportMsg(`Successfully ${mode === "replace" ? "replaced with" : "merged"} ${result} members.`);
+        setImportMsg(`Successfully ${mode === "replace" ? "replaced with" : "merged"} ${typeof result === "number" ? result : "?"} members.`);
       }
       refresh();
     } catch (err) {
