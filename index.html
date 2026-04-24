@@ -52,12 +52,12 @@ body { background: #f8fafc; -webkit-font-smoothing: antialiased; -moz-osx-font-s
 .nav-badge-amber { background: #f59e0b; color: #fff; }
 
 /* Metric card */
-.metric-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px; transition: all 0.2s ease; position: relative; overflow: hidden; }
-.metric-card:hover { box-shadow: 0 4px 12px -2px rgb(0 0 0 / 0.08); border-color: #cbd5e1; transform: translateY(-1px); }
+.metric-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 22px; transition: all 0.25s cubic-bezier(0.4,0,0.2,1); position: relative; overflow: hidden; }
+.metric-card:hover { box-shadow: 0 8px 24px -4px rgb(0 0 0 / 0.08), 0 4px 8px -4px rgb(0 0 0 / 0.04); border-color: #cbd5e1; transform: translateY(-2px); }
 .metric-card .accent-bar { position: absolute; top: 0; left: 0; width: 100%; height: 3px; }
 
 /* Section card */
-.section-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; }
+.section-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.02); }
 
 /* Overdue row */
 .overdue-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid #f1f5f9; transition: background 0.1s; }
@@ -639,7 +639,7 @@ const ZONE_DEFAULTS = [
 const BLOOD_GROUPS = ["A+","A-","B+","B-","AB+","AB-","O+","O-"];
 const CATEGORIES = ["OFF","AS","SUB"];
 const PAYMENT_MODES = ["Cheque","NEFT","UPI","Cash"];
-const STATUSES = ["ACTIVE","REMOVED","EXPIRED","DECEASED"];
+const STATUSES = ["ACTIVE","REMOVED","DELETED","EXPIRED","DECEASED","NON_PAYMENT"];
 const TITLES = ["Mr.","Mrs.","Ms.","Dr."];
 
 function makeEmptyDB() {
@@ -1442,27 +1442,27 @@ function GrowthChart({ data, height = 160 }) {
 function StatCard({ label, value, color, icon, click, pulse, sub }) {
   const display = useCountUp(typeof value === "number" ? value : 0);
   const colorMap = {
-    blue: { accent:'#2563eb', bg:'#eff6ff', text:'#1e40af', icon:'#3b82f6' },
-    green: { accent:'#059669', bg:'#ecfdf5', text:'#065f46', icon:'#10b981' },
-    red: { accent:'#dc2626', bg:'#fef2f2', text:'#991b1b', icon:'#ef4444' },
-    amber: { accent:'#d97706', bg:'#fffbeb', text:'#92400e', icon:'#f59e0b' },
-    purple: { accent:'#7c3aed', bg:'#f5f3ff', text:'#5b21b6', icon:'#8b5cf6' },
-    emerald: { accent:'#059669', bg:'#ecfdf5', text:'#065f46', icon:'#10b981' },
+    blue: { gradient:'linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)', bg:'#eff6ff', text:'#1e40af', icon:'#3b82f6', glow:'rgba(37,99,235,0.12)' },
+    green: { gradient:'linear-gradient(135deg, #059669 0%, #10b981 100%)', bg:'#ecfdf5', text:'#065f46', icon:'#10b981', glow:'rgba(5,150,105,0.12)' },
+    red: { gradient:'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)', bg:'#fef2f2', text:'#991b1b', icon:'#ef4444', glow:'rgba(220,38,38,0.12)' },
+    amber: { gradient:'linear-gradient(135deg, #d97706 0%, #f59e0b 100%)', bg:'#fffbeb', text:'#92400e', icon:'#f59e0b', glow:'rgba(217,119,6,0.12)' },
+    purple: { gradient:'linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%)', bg:'#f5f3ff', text:'#5b21b6', icon:'#8b5cf6', glow:'rgba(124,58,237,0.12)' },
+    emerald: { gradient:'linear-gradient(135deg, #059669 0%, #10b981 100%)', bg:'#ecfdf5', text:'#065f46', icon:'#10b981', glow:'rgba(5,150,105,0.12)' },
   };
   const c = colorMap[color] || colorMap.blue;
   return (
     <button onClick={click} className={`metric-card text-left w-full ${click ? "cursor-pointer" : "cursor-default"}`}>
-      <div className="accent-bar" style={{background: c.accent}}/>
+      <div className="accent-bar" style={{background: c.gradient}}/>
       <div className="flex items-start justify-between mb-3">
-        <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{background: c.bg}}>
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm" style={{background: c.bg, boxShadow:`0 2px 8px ${c.glow}`}}>
           <span style={{color: c.icon}}>{icon}</span>
         </div>
-        {pulse && <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse mt-1"/>}
+        {pulse && <span className="relative flex h-2.5 w-2.5 mt-1"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"/><span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"/></span>}
       </div>
       <div className="text-metric text-slate-900">{typeof value === "number" ? display : value}</div>
       <div className="flex items-center justify-between mt-1.5">
         <span className="text-[12px] font-medium text-slate-500">{label}</span>
-        {sub && <span className="text-[11px] text-slate-400 font-medium">{sub}</span>}
+        {sub && <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md" style={{background: c.bg, color: c.text}}>{sub}</span>}
       </div>
     </button>
   );
@@ -1470,7 +1470,7 @@ function StatCard({ label, value, color, icon, click, pulse, sub }) {
 
 function Dashboard({ members, issues, onboarding, applications = [], nav, config, onExport, refreshFromSheet, useSheet }) {
   const active = members.filter(m => m.status === "ACTIVE").length;
-  const removed = members.filter(m => m.status === "REMOVED").length;
+  const removed = members.filter(m => m.status === "REMOVED" || m.status === "DELETED").length;
   const deceased = members.filter(m => m.status === "DECEASED").length;
   const expired = members.filter(m => m.status === "EXPIRED").length;
   const total = members.length;
@@ -1576,9 +1576,9 @@ function Dashboard({ members, issues, onboarding, applications = [], nav, config
         const d = new Date(m.doj);
         if (!isNaN(d.getTime()) && d >= cutoff) items.push({ msno: m.msno, name: m.name, action: "Joined", date: m.doj, sort: d });
       }
-      if (m.dateOfChange && (m.status === "REMOVED" || m.status === "DECEASED")) {
+      if (m.dateOfChange && (m.status === "REMOVED" || m.status === "DECEASED" || m.status === "DELETED")) {
         const d = new Date(m.dateOfChange);
-        if (!isNaN(d.getTime()) && d >= cutoff) items.push({ msno: m.msno, name: m.name, action: m.status === "DECEASED" ? "Deceased" : "Removed", date: m.dateOfChange, sort: d });
+        if (!isNaN(d.getTime()) && d >= cutoff) items.push({ msno: m.msno, name: m.name, action: m.status === "DECEASED" ? "Deceased" : m.status === "DELETED" ? "Deleted" : "Removed", date: m.dateOfChange, sort: d });
       }
     });
     return items.sort((a,b) => b.sort - a.sort).slice(0, 6);
@@ -1594,21 +1594,22 @@ function Dashboard({ members, issues, onboarding, applications = [], nav, config
 
   return (
     <div className="space-y-5">
-      {/* Command Center Header */}
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-[22px] font-bold text-slate-900 tracking-[-0.02em]">{greeting}</h1>
+      {/* Command Center Header — Premium gradient banner */}
+      <div className="relative overflow-hidden rounded-2xl" style={{background:'linear-gradient(135deg, #0c1d36 0%, #1e3a5f 50%, #2563eb 100%)'}}>
+        <div className="absolute inset-0 opacity-[0.07]" style={{backgroundImage:'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'1\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")'}}/>
+        <div className="relative px-6 py-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-[24px] font-bold text-white tracking-[-0.02em] mb-1">{greeting}</h1>
+            <p className="text-[13px] text-blue-200/80 font-medium">{config.associationName || "BOIPRA — South Zone"} &middot; {dateStr}</p>
           </div>
-          <p className="text-[13px] text-slate-500 font-medium">{config.associationName || "BOIPRA — South Zone"} &middot; {dateStr}</p>
-        </div>
-        <div className="flex gap-2 flex-shrink-0">
-          <button onClick={() => nav("enroll")} className="bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-semibold px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 shadow-sm hover:shadow">
-            <UserPlus size={14}/>New Member
-          </button>
-          <button onClick={onExport} className="bg-white hover:bg-slate-50 text-slate-700 text-[13px] font-semibold px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 border border-slate-200 shadow-sm">
-            <Download size={14}/>Export
-          </button>
+          <div className="flex gap-2 flex-shrink-0">
+            <button onClick={() => nav("enroll")} className="bg-white hover:bg-blue-50 text-blue-900 text-[13px] font-semibold px-5 py-2.5 rounded-xl transition-all flex items-center gap-2 shadow-lg shadow-black/10 hover:shadow-xl">
+              <UserPlus size={14}/>New Member
+            </button>
+            <button onClick={onExport} className="bg-white/10 hover:bg-white/20 text-white text-[13px] font-semibold px-5 py-2.5 rounded-xl transition-all flex items-center gap-2 border border-white/20 backdrop-blur-sm">
+              <Download size={14}/>Export
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1625,17 +1626,17 @@ function Dashboard({ members, issues, onboarding, applications = [], nav, config
       {/* Overdue Alert — Premium CRM Panel */}
       {overdueMembers.length > 0 && (
         <div className="section-card overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100" style={{background:'linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%)'}}>
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-red-500"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <div className="w-9 h-9 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0 shadow-sm" style={{boxShadow:'0 2px 8px rgba(220,38,38,0.15)'}}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-red-500"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
               </div>
               <div>
-                <h3 className="font-semibold text-slate-900 text-[13px]">{overdueMembers.length} Members Overdue for Renewal</h3>
-                <p className="text-[11px] text-slate-400 font-medium">Subscription expired — action required</p>
+                <h3 className="font-semibold text-red-900 text-[14px]">{overdueMembers.length} Members Overdue for Renewal</h3>
+                <p className="text-[11px] text-red-400 font-medium">Subscription expired — action required</p>
               </div>
             </div>
-            <button onClick={() => nav("members")} className="text-[12px] text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition">View All <ChevronRight size={12}/></button>
+            <button onClick={() => nav("members")} className="text-[12px] text-red-600 hover:text-red-800 font-semibold flex items-center gap-1 px-3 py-1.5 rounded-lg hover:bg-red-50 transition border border-red-200">View All <ChevronRight size={12}/></button>
           </div>
           <div>
             {overdueMembers.slice(0, 6).map((m, i) => (
@@ -1664,9 +1665,9 @@ function Dashboard({ members, issues, onboarding, applications = [], nav, config
       {/* Charts Row — Zone + Growth */}
       <div className="grid md:grid-cols-2 gap-4">
         <div className="section-card p-5">
-          <h3 className="font-semibold text-slate-900 mb-5 text-[13px] flex items-center gap-2.5">
-            <span className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10"/><path d="M2 12h20"/></svg>
+          <h3 className="font-semibold text-slate-900 mb-5 text-[14px] flex items-center gap-2.5">
+            <span className="w-8 h-8 rounded-xl bg-blue-50 flex items-center justify-center shadow-sm" style={{boxShadow:'0 2px 6px rgba(37,99,235,0.1)'}}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10"/><path d="M2 12h20"/></svg>
             </span>
             Members by Zone
           </h3>
@@ -1674,9 +1675,9 @@ function Dashboard({ members, issues, onboarding, applications = [], nav, config
         </div>
 
         <div className="section-card p-5">
-          <h3 className="font-semibold text-slate-900 mb-5 text-[13px] flex items-center gap-2.5">
-            <span className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          <h3 className="font-semibold text-slate-900 mb-5 text-[14px] flex items-center gap-2.5">
+            <span className="w-8 h-8 rounded-xl bg-blue-50 flex items-center justify-center shadow-sm" style={{boxShadow:'0 2px 6px rgba(37,99,235,0.1)'}}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
             </span>
             Membership Growth
           </h3>
@@ -1768,11 +1769,11 @@ function Dashboard({ members, issues, onboarding, applications = [], nav, config
               {recentActivity.map((item, i) => (
                 <div key={i} className="flex items-center justify-between py-2.5 px-3 rounded-lg text-[13px] hover:bg-slate-50 transition">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${item.action === "Joined" ? "bg-emerald-500" : item.action === "Deceased" ? "bg-slate-400" : "bg-red-500"}`}/>
+                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${item.action === "Joined" ? "bg-emerald-500" : item.action === "Deceased" ? "bg-slate-400" : item.action === "Deleted" ? "bg-rose-500" : "bg-red-500"}`}/>
                     <button onClick={() => nav("member-detail", item.msno)} className="text-slate-800 hover:text-blue-600 font-medium truncate max-w-[160px] text-left transition">{item.name}</button>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md ${item.action === "Joined" ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : item.action === "Deceased" ? "bg-slate-50 text-slate-500 border border-slate-200" : "bg-red-50 text-red-700 border border-red-100"}`}>{item.action}</span>
+                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md ${item.action === "Joined" ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : item.action === "Deceased" ? "bg-slate-50 text-slate-500 border border-slate-200" : item.action === "Deleted" ? "bg-rose-50 text-rose-700 border border-rose-100" : "bg-red-50 text-red-700 border border-red-100"}`}>{item.action}</span>
                     <span className="text-[11px] text-slate-400 font-medium">{item.date}</span>
                   </div>
                 </div>
@@ -1785,22 +1786,22 @@ function Dashboard({ members, issues, onboarding, applications = [], nav, config
       {/* Quick Actions */}
       <div className="section-card p-5">
         <h3 className="font-semibold text-slate-900 mb-4 text-[13px] flex items-center gap-2.5">
-          <span className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span>
+          <span className="w-7 h-7 rounded-xl bg-slate-100 flex items-center justify-center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
           Quick Actions
         </h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {[
-            { action:() => nav("enroll"), icon:<UserPlus size={18}/>, label:"Enroll Member", color:"blue" },
-            { action:() => nav("printform"), icon:<Printer size={18}/>, label:"Print Form", color:"cyan" },
-            { action:() => nav("reports"), icon:<FileText size={18}/>, label:"Reports", color:"indigo" },
-            { action:() => nav("members"), icon:<Users size={18}/>, label:"All Members", color:"teal" },
-            { action:() => nav("issues"), icon:<AlertTriangle size={18}/>, label:"Data Issues", color:"amber" },
+            { action:() => nav("enroll"), icon:<UserPlus size={18}/>, label:"Enroll Member", bg:"#eff6ff", iconColor:"#2563eb", border:"#bfdbfe" },
+            { action:() => nav("printform"), icon:<Printer size={18}/>, label:"Print Form", bg:"#ecfeff", iconColor:"#0891b2", border:"#a5f3fc" },
+            { action:() => nav("reports"), icon:<FileText size={18}/>, label:"Reports", bg:"#eef2ff", iconColor:"#4f46e5", border:"#c7d2fe" },
+            { action:() => nav("members"), icon:<Users size={18}/>, label:"All Members", bg:"#f0fdfa", iconColor:"#0d9488", border:"#99f6e4" },
+            { action:() => nav("issues"), icon:<AlertTriangle size={18}/>, label:"Data Issues", bg:"#fffbeb", iconColor:"#d97706", border:"#fde68a" },
             useSheet
-              ? { action:refreshFromSheet, icon:<RefreshCw size={18}/>, label:"Sync Sheet", color:"violet" }
-              : { action:onExport, icon:<Download size={18}/>, label:"Export Excel", color:"emerald" },
+              ? { action:refreshFromSheet, icon:<RefreshCw size={18}/>, label:"Sync Sheet", bg:"#f5f3ff", iconColor:"#7c3aed", border:"#ddd6fe" }
+              : { action:onExport, icon:<Download size={18}/>, label:"Export Excel", bg:"#ecfdf5", iconColor:"#059669", border:"#a7f3d0" },
           ].map((qa, i) => (
-            <button key={i} onClick={qa.action} className="quick-action group">
-              <div className={`w-10 h-10 rounded-xl bg-${qa.color}-50 flex items-center justify-center text-${qa.color}-600 group-hover:scale-105 transition-transform`}>{qa.icon}</div>
+            <button key={i} onClick={qa.action} className="quick-action group" style={{borderColor: qa.border}}>
+              <div className="w-11 h-11 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200 shadow-sm" style={{background: qa.bg, color: qa.iconColor, boxShadow:`0 2px 6px ${qa.bg}`}}>{qa.icon}</div>
               <span className="text-[12px] font-semibold text-slate-600 text-center leading-tight">{qa.label}</span>
             </button>
           ))}
@@ -2507,6 +2508,7 @@ function MemberList({ members, nav, refresh, zones }) {
   const [centreF, setCentreF] = useState("ALL");
   const [statusF, setStatusF] = useState("ALL");
   const [page, setPage] = useState(1);
+  const [confirmDelete, setConfirmDelete] = useState(null);
   const PER_PAGE = 50;
 
   useEffect(() => { setPage(1); }, [search, centreF, statusF]);
@@ -2520,6 +2522,53 @@ function MemberList({ members, nav, refresh, zones }) {
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
   const paged = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
+  const handleStatusChange = (msno, newStatus) => {
+    const idx = DB.members.findIndex(m => m.msno === msno);
+    if (idx >= 0) {
+      const oldStatus = DB.members[idx].status;
+      if (oldStatus === newStatus) return;
+      const today = new Date().toISOString().slice(0, 10);
+      DB.members[idx].status = newStatus;
+      DB.members[idx].dateOfChange = today;
+      // Set reasonForChange so it shows in Form 7 removed section
+      if (newStatus === "REMOVED") {
+        DB.members[idx].reasonForChange = "REMOVED";
+        DB.members[idx].notes = (DB.members[idx].notes ? DB.members[idx].notes + "; " : "") + `Status changed from ${oldStatus} to REMOVED on ${today}`;
+      } else if (newStatus === "DELETED") {
+        DB.members[idx].reasonForChange = "DELETED";
+        DB.members[idx].notes = (DB.members[idx].notes ? DB.members[idx].notes + "; " : "") + `Deleted on ${today}`;
+      } else if (newStatus === "DECEASED") {
+        DB.members[idx].reasonForChange = "DECEASED";
+        DB.members[idx].notes = (DB.members[idx].notes ? DB.members[idx].notes + "; " : "") + `Marked deceased on ${today}`;
+      } else if (newStatus === "EXPIRED") {
+        DB.members[idx].reasonForChange = "EXPIRED";
+        DB.members[idx].notes = (DB.members[idx].notes ? DB.members[idx].notes + "; " : "") + `Expired on ${today}`;
+      } else if (newStatus === "NON_PAYMENT") {
+        DB.members[idx].reasonForChange = "NON_PAYMENT";
+        DB.members[idx].notes = (DB.members[idx].notes ? DB.members[idx].notes + "; " : "") + `Non-payment on ${today}`;
+      } else if (newStatus === "ACTIVE") {
+        DB.members[idx].reasonForChange = "REINSTATED";
+        DB.members[idx].notes = (DB.members[idx].notes ? DB.members[idx].notes + "; " : "") + `Reinstated from ${oldStatus} on ${today}`;
+      }
+      refresh();
+    }
+  };
+
+  const handleDelete = (msno) => {
+    const idx = DB.members.findIndex(m => m.msno === msno);
+    if (idx >= 0) {
+      const today = new Date().toISOString().slice(0, 10);
+      const oldStatus = DB.members[idx].status;
+      // Mark as DELETED instead of removing — so it shows in Form 7 removed
+      DB.members[idx].status = "DELETED";
+      DB.members[idx].dateOfChange = today;
+      DB.members[idx].reasonForChange = "DELETED";
+      DB.members[idx].notes = (DB.members[idx].notes ? DB.members[idx].notes + "; " : "") + `Deleted from ${oldStatus} on ${today}`;
+      setConfirmDelete(null);
+      refresh();
+    }
+  };
+
   const exportCSV = () => {
     const h = INPUT_FIELDS.map(f => f.label);
     const rows = filtered.map(m => INPUT_FIELDS.map(f => m[f.key] ?? ""));
@@ -2528,35 +2577,64 @@ function MemberList({ members, nav, refresh, zones }) {
     const a = document.createElement("a"); a.href = url; a.download = "BOIPRA-SZ_Members.csv"; a.click(); URL.revokeObjectURL(url);
   };
 
+  const statusStyles = {
+    ACTIVE: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    REMOVED: "bg-red-50 text-red-700 border-red-200",
+    DELETED: "bg-rose-50 text-rose-700 border-rose-200",
+    DECEASED: "bg-slate-100 text-slate-600 border-slate-300",
+    EXPIRED: "bg-amber-50 text-amber-700 border-amber-200",
+    NON_PAYMENT: "bg-orange-50 text-orange-700 border-orange-200",
+  };
+
   return (
     <div className="space-y-4">
+      {/* Delete confirmation modal */}
+      {confirmDelete && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setConfirmDelete(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl border p-6 max-w-sm mx-4 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0"><Trash2 size={18} className="text-red-600"/></div>
+              <div>
+                <h3 className="font-semibold text-slate-900 text-[15px]">Delete Member</h3>
+                <p className="text-[13px] text-slate-500">This action cannot be undone.</p>
+              </div>
+            </div>
+            <p className="text-[13px] text-slate-600">Are you sure you want to permanently delete <strong>{confirmDelete.name}</strong> (MS.NO {confirmDelete.msno})?</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setConfirmDelete(null)} className="px-4 py-2 text-[13px] font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition">Cancel</button>
+              <button onClick={() => handleDelete(confirmDelete.msno)} className="px-4 py-2 text-[13px] font-medium text-white bg-red-600 hover:bg-red-700 rounded-xl transition">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
         <div className="flex-1 flex gap-2 w-full sm:w-auto flex-wrap mobile-stack mobile-full">
           <div className="relative flex-1 min-w-48 mobile-full">
             <Search size={16} className="absolute left-3 top-3 text-gray-400"/>
-            <input type="text" placeholder="Search name, PF, M.S.NO, mobile…" value={search} onChange={e => setSearch(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"/>
+            <input type="text" placeholder="Search name, PF, M.S.NO, mobile…" value={search} onChange={e => setSearch(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"/>
           </div>
-          <select value={centreF} onChange={e => setCentreF(e.target.value)} className="border rounded-lg px-3 py-2.5 text-sm bg-white">
+          <select value={centreF} onChange={e => setCentreF(e.target.value)} className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white">
             <option value="ALL">All Centres</option>{allCentres.map(c => <option key={c}>{c}</option>)}
           </select>
-          <select value={statusF} onChange={e => setStatusF(e.target.value)} className="border rounded-lg px-3 py-2.5 text-sm bg-white">
+          <select value={statusF} onChange={e => setStatusF(e.target.value)} className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-white">
             <option value="ALL">All Status</option>{STATUSES.map(s => <option key={s}>{s}</option>)}
           </select>
         </div>
         <div className="flex gap-2">
-          <button onClick={exportCSV} className="flex items-center gap-2 text-sm font-medium text-blue-900 bg-blue-100 hover:bg-blue-200 px-4 py-2.5 rounded-lg transition"><Download size={14}/>CSV</button>
-          <button onClick={() => exportToExcel(filtered, DB.config)} className="flex items-center gap-2 text-sm font-medium text-green-900 bg-green-100 hover:bg-green-200 px-4 py-2.5 rounded-lg transition"><Download size={14}/>Excel</button>
+          <button onClick={exportCSV} className="flex items-center gap-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 px-4 py-2.5 rounded-xl transition border border-blue-200"><Download size={14}/>CSV</button>
+          <button onClick={() => exportToExcel(filtered, DB.config)} className="flex items-center gap-2 text-sm font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-4 py-2.5 rounded-xl transition border border-emerald-200"><Download size={14}/>Excel</button>
         </div>
       </div>
 
-      <div className="text-xs text-gray-500">{filtered.length} member{filtered.length !== 1 ? "s":""}</div>
+      <div className="text-[12px] text-slate-500 font-medium">{filtered.length} member{filtered.length !== 1 ? "s":""}</div>
 
-      <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+      <div className="section-card overflow-hidden">
         <div className="overflow-x-auto mobile-scroll">
           <table className="w-full mobile-small" style={{fontSize:"11px"}}>
-            <thead><tr className="bg-blue-900 text-white">
-              {["S.No","MS.NO","Name","S/W/D of","PF","Zone","Centre","Address","Mobile","Status",""].map(h => (
-                <th key={h} className={`text-left px-1.5 py-2 font-semibold uppercase tracking-wide ${(h==="Zone"||h==="Address")?"mobile-hide":""}`} style={{fontSize:"9px"}}>{h}</th>
+            <thead><tr className="bg-slate-800 text-white">
+              {["S.No","MS.NO","Name","S/W/D of","PF","Zone","Centre","Mobile","Status","Actions"].map(h => (
+                <th key={h} className={`text-left px-2 py-2.5 font-semibold uppercase tracking-wide ${h==="Zone"?"mobile-hide":""}`} style={{fontSize:"9px"}}>{h}</th>
               ))}
             </tr></thead>
             <tbody>
@@ -2564,26 +2642,34 @@ function MemberList({ members, nav, refresh, zones }) {
                 const iss = getIssues(m, zones);
                 const sno = (page - 1) * PER_PAGE + i + 1;
                 return (
-                  <tr key={m.msno} className={`border-t hover:bg-blue-50 transition ${i%2 ? "bg-gray-50":"bg-white"}`}>
-                    <td className="px-1.5 py-1.5 text-gray-400">{sno}</td>
-                    <td className="px-1.5 py-1.5 font-mono font-bold text-blue-900">{m.msno}</td>
-                    <td className="px-1.5 py-1.5"><button onClick={() => nav("member-detail", m.msno)} className="text-blue-700 hover:underline font-medium">{m.name}</button>
+                  <tr key={m.msno} className={`border-t border-slate-100 hover:bg-blue-50/50 transition ${i%2 ? "bg-slate-50/50":"bg-white"}`}>
+                    <td className="px-2 py-2 text-slate-400 text-[11px]">{sno}</td>
+                    <td className="px-2 py-2 font-mono font-bold text-blue-900 text-[11px]">{m.msno}</td>
+                    <td className="px-2 py-2"><button onClick={() => nav("member-detail", m.msno)} className="text-blue-700 hover:text-blue-900 hover:underline font-medium text-[12px]">{m.name}</button>
                       {iss.length > 0 && <AlertTriangle size={10} className="inline ml-0.5 text-amber-500"/>}
                     </td>
-                    <td className="px-1.5 py-1.5 text-gray-600">{m.sowo}</td>
-                    <td className="px-1.5 py-1.5 font-mono text-gray-600">{m.pf}</td>
-                    <td className="px-1.5 py-1.5 text-gray-600 mobile-hide">{m.zone}</td>
-                    <td className="px-1.5 py-1.5 text-gray-600">{m.centre}</td>
-                    <td className="px-1.5 py-1.5 text-gray-500 mobile-hide" style={{maxWidth:"160px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={m.address}>{m.address}</td>
-                    <td className="px-1.5 py-1.5 text-gray-600 whitespace-nowrap">{m.mobile && <a href={`https://wa.me/91${String(m.mobile).replace(/\D/g,'').slice(-10)}`} target="_blank" rel="noopener" className="inline-flex items-center gap-0.5 hover:text-green-600 transition" title="WhatsApp">{m.mobile}<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-green-500"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 0 0 .611.611l4.458-1.495A11.952 11.952 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.387 0-4.592-.836-6.318-2.228l-.143-.113-3.013 1.01 1.01-3.013-.113-.143A9.952 9.952 0 0 1 2 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg></a>}</td>
-                    <td className="px-1.5 py-1.5">
-                      <span className={`font-semibold px-1.5 py-0.5 rounded-full ${m.status==="ACTIVE"?"bg-green-100 text-green-800":m.status==="REMOVED"?"bg-red-100 text-red-800":"bg-gray-100 text-gray-600"}`} style={{fontSize:"9px"}}>{m.status}</span>
+                    <td className="px-2 py-2 text-slate-600 text-[11px]">{m.sowo}</td>
+                    <td className="px-2 py-2 font-mono text-slate-500 text-[11px]">{m.pf}</td>
+                    <td className="px-2 py-2 text-slate-500 mobile-hide text-[11px]">{m.zone}</td>
+                    <td className="px-2 py-2 text-slate-500 text-[11px]">{m.centre}</td>
+                    <td className="px-2 py-2 text-slate-600 whitespace-nowrap text-[11px]">{m.mobile && <a href={`https://wa.me/91${String(m.mobile).replace(/\D/g,'').slice(-10)}`} target="_blank" rel="noopener" className="inline-flex items-center gap-0.5 hover:text-green-600 transition" title="WhatsApp">{m.mobile}<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-green-500 ml-0.5"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 0 0 .611.611l4.458-1.495A11.952 11.952 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.387 0-4.592-.836-6.318-2.228l-.143-.113-3.013 1.01 1.01-3.013-.113-.143A9.952 9.952 0 0 1 2 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg></a>}</td>
+                    <td className="px-2 py-2">
+                      <select value={m.status} onChange={e => handleStatusChange(m.msno, e.target.value)}
+                        className={`text-[10px] font-semibold px-2 py-1 rounded-lg border cursor-pointer outline-none transition ${statusStyles[m.status] || "bg-slate-100 text-slate-600 border-slate-200"}`}
+                        style={{minWidth:"80px"}}>
+                        {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
                     </td>
-                    <td className="px-1.5 py-1.5"><button onClick={() => nav("member-detail", m.msno)} className="text-gray-400 hover:text-blue-600"><Eye size={14}/></button></td>
+                    <td className="px-2 py-2">
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => nav("member-detail", m.msno)} className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition" title="View"><Eye size={14}/></button>
+                        <button onClick={() => setConfirmDelete(m)} className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 transition" title="Delete"><Trash2 size={14}/></button>
+                      </div>
+                    </td>
                   </tr>
                 );
               })}
-              {filtered.length === 0 && <tr><td colSpan={11} className="px-4 py-12 text-center text-gray-400">No members found.</td></tr>}
+              {filtered.length === 0 && <tr><td colSpan={10} className="px-4 py-12 text-center text-slate-400">No members found.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -2628,7 +2714,26 @@ function MemberDetail({ msno, zones, refresh, nav }) {
 
   const save = () => {
     const idx = DB.members.findIndex(m => m.msno === msno);
-    if (idx >= 0) { DB.members[idx] = { ...form }; refresh(); setEditing(false); }
+    if (idx >= 0) {
+      const oldMember = DB.members[idx];
+      const oldStatus = oldMember.status;
+      const newStatus = form.status;
+      const today = new Date().toISOString().slice(0, 10);
+      // If status changed, update dateOfChange and reasonForChange automatically
+      if (oldStatus !== newStatus) {
+        form.dateOfChange = today;
+        if (newStatus === "REMOVED") form.reasonForChange = "REMOVED";
+        else if (newStatus === "DELETED") form.reasonForChange = "DELETED";
+        else if (newStatus === "DECEASED") form.reasonForChange = "DECEASED";
+        else if (newStatus === "EXPIRED") form.reasonForChange = "EXPIRED";
+        else if (newStatus === "NON_PAYMENT") form.reasonForChange = "NON_PAYMENT";
+        else if (newStatus === "ACTIVE") form.reasonForChange = "REINSTATED";
+        form.notes = (form.notes ? form.notes + "; " : "") + `Status changed from ${oldStatus} to ${newStatus} on ${today}`;
+      }
+      DB.members[idx] = { ...form };
+      refresh();
+      setEditing(false);
+    }
   };
 
   const cancel = () => { setForm({...member}); setEditing(false); };
@@ -2647,15 +2752,35 @@ function MemberDetail({ msno, zones, refresh, nav }) {
                 <span className="text-blue-300 text-sm">M.S.NO <strong className="text-white">{member.msno}</strong></span>
                 <span className="text-blue-300 text-sm">PF <strong className="text-white">{member.pf}</strong></span>
                 {age && <span className="text-blue-300 text-sm">Age <strong className="text-white">{age}</strong></span>}
-                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${member.status==="ACTIVE"?"bg-green-500 text-white":"bg-red-500 text-white"}`}>{member.status}</span>
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${member.status==="ACTIVE"?"bg-green-500 text-white":member.status==="DECEASED"?"bg-slate-500 text-white":member.status==="DELETED"?"bg-rose-500 text-white":"bg-red-500 text-white"}`}>{member.status}</span>
                 {member.mobile && <a href={`https://wa.me/91${String(member.mobile).replace(/\D/g,'').slice(-10)}`} target="_blank" rel="noopener" className="text-green-400 hover:text-green-300 text-sm flex items-center gap-1"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.492a.5.5 0 0 0 .611.611l4.458-1.495A11.952 11.952 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-2.387 0-4.592-.836-6.318-2.228l-.143-.113-3.013 1.01 1.01-3.013-.113-.143A9.952 9.952 0 0 1 2 12C2 6.486 6.486 2 12 2s10 4.486 10 10-4.486 10-10 10z"/></svg>WhatsApp</a>}
               </div>
             </div>
           </div>
-          <button onClick={() => editing ? save() : setEditing(true)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition no-print ${editing ? "bg-green-500 text-white hover:bg-green-600" : "bg-white text-blue-900 hover:bg-blue-50"}`}>
-            {editing ? <><Save size={16}/>Save Changes</> : <><Edit3 size={16}/>Edit</>}
-          </button>
+          <div className="flex items-center gap-2 no-print">
+            <button onClick={() => editing ? save() : setEditing(true)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition ${editing ? "bg-green-500 text-white hover:bg-green-600" : "bg-white text-blue-900 hover:bg-blue-50"}`}>
+              {editing ? <><Save size={16}/>Save Changes</> : <><Edit3 size={16}/>Edit</>}
+            </button>
+            {member.status !== "DELETED" && (
+              <button onClick={() => {
+                if (confirm(`Are you sure you want to delete ${member.name} (MS.NO ${member.msno})? This will mark them as DELETED and they will appear in Form 7.`)) {
+                  const idx = DB.members.findIndex(m => m.msno === msno);
+                  if (idx >= 0) {
+                    const today = new Date().toISOString().slice(0, 10);
+                    DB.members[idx].status = "DELETED";
+                    DB.members[idx].dateOfChange = today;
+                    DB.members[idx].reasonForChange = "DELETED";
+                    DB.members[idx].notes = (DB.members[idx].notes ? DB.members[idx].notes + "; " : "") + `Deleted on ${today}`;
+                    refresh();
+                    nav("members");
+                  }
+                }
+              }} className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-red-500/20 text-red-200 hover:bg-red-500/40 transition" title="Delete member">
+                <Trash2 size={16}/>Delete
+              </button>
+            )}
+          </div>
         </div>
 
         {issues.length > 0 && (
@@ -2847,7 +2972,7 @@ function Reports({ members, config }) {
 
   const statusLabel = (s) => {
     if (!s) return "Unknown";
-    const map = { "NON_PAYMENT":"Non-Payment", "REMOVED":"Removed", "DECEASED":"Deceased", "RESIGNED":"Resigned", "TRANSFERRED":"Transferred", "EXPIRED":"Deceased" };
+    const map = { "NON_PAYMENT":"Non-Payment", "REMOVED":"Removed", "DELETED":"Deleted", "DECEASED":"Deceased", "RESIGNED":"Resigned", "TRANSFERRED":"Transferred", "EXPIRED":"Expired" };
     return map[s] || map[s.toUpperCase()] || s;
   };
 
