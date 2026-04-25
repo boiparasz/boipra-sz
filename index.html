@@ -309,9 +309,19 @@ function clearScriptUrl() { localStorage.removeItem(SCRIPT_URL_KEY); }
 
 /* Gemini API key — stored in localStorage for direct browser-to-Gemini calls */
 const GEMINI_KEY_STORAGE = "boipra_gemini_api_key";
+const GEMINI_MODEL_STORAGE = "boipra_gemini_model";
+const GEMINI_MODELS = [
+  { id: "gemini-2.0-flash-lite", label: "Gemini 2.0 Flash Lite (free, fast)" },
+  { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash (free, smart)" },
+  { id: "gemini-1.5-flash", label: "Gemini 1.5 Flash (free, reliable)" },
+  { id: "gemini-1.5-flash-8b", label: "Gemini 1.5 Flash 8B (free, lightweight)" },
+  { id: "gemini-1.5-pro", label: "Gemini 1.5 Pro (paid, best quality)" },
+];
 function getGeminiKey() { return localStorage.getItem(GEMINI_KEY_STORAGE) || ""; }
 function setGeminiKey(key) { localStorage.setItem(GEMINI_KEY_STORAGE, key.trim()); }
 function clearGeminiKey() { localStorage.removeItem(GEMINI_KEY_STORAGE); }
+function getGeminiModel() { return localStorage.getItem(GEMINI_MODEL_STORAGE) || "gemini-2.0-flash-lite"; }
+function setGeminiModel(m) { localStorage.setItem(GEMINI_MODEL_STORAGE, m); }
 
 // Column mapping: app field keys <-> Google Sheet HEADERS
 const APP_TO_SHEET = {
@@ -3755,7 +3765,8 @@ function ChatView({ members, config }) {
       userMessage += "User question: " + text;
       contents.push({ role: "user", parts: [{ text: userMessage }] });
 
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+      const model = getGeminiModel();
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
       const resp = await fetch(url, {
         method: "POST",
@@ -4097,14 +4108,24 @@ function SettingsView({ config, zones, refresh, members, onImport, onReset, onEx
               {geminiSaved && <p className="text-sm text-emerald-600 mt-2 flex items-center gap-1"><Check size={14}/>API key saved!</p>}
             </div>
 
-            <div className="flex gap-2 items-center">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Model</label>
+              <select value={getGeminiModel()} onChange={e => { setGeminiModel(e.target.value); setGeminiTestResult(null); }}
+                className="w-full border rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                {GEMINI_MODELS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+              </select>
+              <p className="text-xs text-gray-400 mt-1">If one model gives quota errors, try a different one. Each model has separate quota limits.</p>
+            </div>
+
+            <div className="flex gap-2 items-center flex-wrap">
               <button onClick={async () => {
                 setGeminiTesting(true);
                 setGeminiTestResult(null);
                 try {
                   const key = geminiKey || getGeminiKey();
                   if (!key) throw new Error("No API key entered");
-                  const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`, {
+                  const model = getGeminiModel();
+                  const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -4118,7 +4139,7 @@ function SettingsView({ config, zones, refresh, members, onImport, onReset, onEx
                   }
                   const data = await resp.json();
                   const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-                  setGeminiTestResult({ ok: true, msg: `Working! Gemini says: "${reply.trim()}"` });
+                  setGeminiTestResult({ ok: true, msg: `Working with ${model}! Gemini says: "${reply.trim()}"` });
                 } catch (err) {
                   setGeminiTestResult({ ok: false, msg: err.message });
                 }
@@ -4132,14 +4153,22 @@ function SettingsView({ config, zones, refresh, members, onImport, onReset, onEx
             </div>
 
             {geminiTestResult && (
-              <div className={`rounded-xl p-3 text-sm flex items-center gap-2 ${geminiTestResult.ok ? "bg-emerald-50 border border-emerald-200 text-emerald-800" : "bg-red-50 border border-red-200 text-red-800"}`}>
-                {geminiTestResult.ok ? <CheckCircle size={16}/> : <AlertCircle size={16}/>}
-                {geminiTestResult.msg}
+              <div className={`rounded-xl p-3 text-sm ${geminiTestResult.ok ? "bg-emerald-50 border border-emerald-200 text-emerald-800" : "bg-red-50 border border-red-200 text-red-800"}`}>
+                <div className="flex items-start gap-2">
+                  {geminiTestResult.ok ? <CheckCircle size={16} className="mt-0.5 flex-shrink-0"/> : <AlertCircle size={16} className="mt-0.5 flex-shrink-0"/>}
+                  <div>
+                    <p>{geminiTestResult.msg}</p>
+                    {!geminiTestResult.ok && geminiTestResult.msg.includes("quota") && (
+                      <p className="mt-2 text-xs font-medium">Try selecting a different model above — each model has separate quotas. "Gemini 1.5 Flash 8B" or "Gemini 2.0 Flash Lite" often have available quota.</p>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
-            <div className="border-t pt-4 mt-4">
-              <p className="text-xs text-gray-400">Your API key is stored in this browser's localStorage only. It is sent directly to Google's Gemini API — not through any third-party server. The free tier gives you 15 requests per minute and 1 million tokens per day.</p>
+            <div className="border-t pt-4 mt-4 space-y-2">
+              <p className="text-xs text-gray-400">Your API key is stored in this browser's localStorage only. It is sent directly to Google's Gemini API — not through any third-party server.</p>
+              <p className="text-xs text-gray-400">If you keep getting quota errors on all models, your Google Cloud project may need billing enabled. Go to <a href="https://console.cloud.google.com/billing" target="_blank" rel="noopener" className="underline">Google Cloud Console → Billing</a> and link a billing account to the project that owns your API key. Even with billing enabled, Gemini usage within free-tier limits won't be charged.</p>
             </div>
           </div>
         </div>
