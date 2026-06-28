@@ -893,6 +893,7 @@ function App() {
   const [onboarding, setOnboarding] = useState([]);
   const [applications, setApplications] = useState([]); // from Google Sheet APPLICATIONS tab
   const [selectedMSNO, setSelectedMSNO] = useState(null);
+          const [openInEditMode, setOpenInEditMode] = useState(false);
   const [saveStatus, setSaveStatus] = useState("");
   const [syncError, setSyncError] = useState("");
   const saveTimer = useRef(null);
@@ -997,8 +998,9 @@ function App() {
     persistToDB();
   };
 
-  const nav = (v, msno) => {
+  const nav = (v, msno, editMode) => {
     setView(v); setSelectedMSNO(msno || null);
+            setOpenInEditMode(editMode === true);
     // Push to browser history so Back button works within the app
     try { window.history.pushState({ view: v, msno: msno || null }, "", ""); } catch(e) {}
   };
@@ -1341,7 +1343,7 @@ function App() {
           refresh();
         }}/>}
         {view === "members" && <MemberList members={members} nav={nav} refresh={refresh} zones={zones}/>}
-        {view === "member-detail" && <MemberDetail msno={selectedMSNO} zones={zones} refresh={refresh} nav={nav}/>}
+        {view === "member-detail" && <MemberDetail msno={selectedMSNO} zones={zones} refresh={refresh} nav={nav} openInEdit={openInEditMode}/>}
         {view === "issues" && <IssuesView issues={issues} nav={nav}/>}
         {view === "printform" && <PrintableApplicationForm config={config} onClose={() => nav("onboarding")}/>}
         {view === "reports" && <Reports members={members} config={config}/>}
@@ -2679,6 +2681,7 @@ function MemberList({ members, nav, refresh, zones }) {
                     <td className="px-2 py-2">
                       <div className="flex items-center gap-1">
                         <button onClick={() => nav("member-detail", m.msno)} className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition" title="View"><Eye size={14}/></button>
+                                                        <button onClick={() => { nav("member-detail", m.msno, true); }} className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition" title="Edit"><Edit3 size={14}/></button>
                         <button onClick={() => setConfirmDelete(m)} className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 transition" title="Delete"><Trash2 size={14}/></button>
                       </div>
                     </td>
@@ -2714,7 +2717,7 @@ function MemberList({ members, nav, refresh, zones }) {
 /* ═══════════════════════════════════════════════════════════════════════════
    MEMBER DETAIL + INLINE EDITING (MASTER tab)
    ═══════════════════════════════════════════════════════════════════════════ */
-function MemberDetail({ msno, zones, refresh, nav }) {
+function MemberDetail({ msno, zones, refresh, nav, openInEdit }) {
   const member = DB.members.find(m => m.msno === msno);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({});
@@ -2724,6 +2727,7 @@ function MemberDetail({ msno, zones, refresh, nav }) {
   if (!member) return <div className="text-center text-gray-400 py-12">Member not found.</div>;
 
   const issues = getIssues(member, zones);
+          useEffect(() => { if (openInEdit) setEditing(true); }, [openInEdit]);
   const age = getAge(member.dob);
   const groups = {};
   INPUT_FIELDS.forEach(f => { if (!groups[f.group]) groups[f.group] = []; groups[f.group].push(f); });
