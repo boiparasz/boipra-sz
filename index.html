@@ -1282,7 +1282,7 @@ function App() {
       </header>
 
       <main className="max-w-[1360px] mx-auto px-5 py-6">
-        {view === "dashboard" && <Dashboard members={members} issues={issues} onboarding={onboarding} applications={applications} nav={nav} config={config} onExport={() => exportToExcel(DB.members, DB.config)} refreshFromSheet={refreshFromSheet} useSheet={useSheet}/>}
+        {view === "dashboard" && <Dashboard members={members} issues={issues} onboarding={onboarding} applications={applications} nav={nav} config={config} onExport={() => exportToExcel(DB.members, DB.config)} refreshFromSheet={refreshFromSheet} useSheet={useSheet} loading={loading}/>}
         {view === "enroll" && <EnrollWizard zones={zones} config={config} onDone={() => { refresh(); nav("members"); }}/>}
         {view === "onboarding" && <OnboardingQueue onboarding={onboarding} applications={applications} refresh={refresh} nav={nav} zones={zones} config={config} onApproveApp={async (app) => {
           // Convert application to member and add
@@ -1486,7 +1486,7 @@ function StatCard({ label, value, color, icon, click, pulse, sub }) {
   );
 }
 
-function Dashboard({ members, issues, onboarding, applications = [], nav, config, onExport, refreshFromSheet, useSheet }) {
+function Dashboard({ members, issues, onboarding, applications = [], nav, config, onExport, refreshFromSheet, useSheet, loading = false }) {
   const active = members.filter(m => m.status === "ACTIVE").length;
   const removed = members.filter(m => m.status === "REMOVED" || m.status === "DELETED").length;
   const deceased = members.filter(m => m.status === "DECEASED").length;
@@ -1497,7 +1497,7 @@ function Dashboard({ members, issues, onboarding, applications = [], nav, config
   const centres = {};
   let ageSum = 0, ageN = 0;
   members.filter(m => m.status === "ACTIVE").forEach(m => {
-    centres[m.centre] = (centres[m.centre] || 0) + 1;
+    const cKey = (m.centre || '').trim(); if (cKey) { centres[cKey] = (centres[cKey] || 0) + 1; }
     const z = m.zone || "Unknown";
     zones[z] = (zones[z] || 0) + 1;
     const a = getAge(m.dob); if (a) { ageSum += a; ageN++; }
@@ -1633,12 +1633,16 @@ function Dashboard({ members, issues, onboarding, applications = [], nav, config
 
       {/* Metric Cards — 3x2 on mobile, 6 across on desktop */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {loading && [0,1,2,3,4,5].map(k => <div key={k} className="bg-white rounded-xl p-4 border border-slate-100 animate-pulse"><div className="h-3 bg-slate-200 rounded w-16 mb-3"></div><div className="h-7 bg-slate-200 rounded w-12"></div></div>)}
+        {!loading && <>
         <StatCard label="Total Members" value={total} color="blue" icon={<Users size={16}/>} click={() => nav("members")} sub={`${active} active`}/>
         <StatCard label="Active" value={active} color="green" icon={<CheckCircle size={16}/>} click={() => nav("members")} sub={`${Math.round((active/total)*100)||0}%`}/>
         <StatCard label="Removed" value={removed + deceased} color="red" icon={<XCircle size={16}/>} click={() => nav("members")} sub={`${deceased} deceased`}/>
         <StatCard label="Pending" value={pendingTotal} color="amber" icon={<Clock size={16}/>} click={() => nav("onboarding")} pulse={pendingTotal > 0} sub="approval"/>
         <StatCard label="Issues" value={issues.length} color={issues.length ? "red" : "green"} icon={<AlertTriangle size={16}/>} click={() => nav("issues")} sub={issues.length ? "attention" : "clear"}/>
         <StatCard label="Avg Age" value={avgAge} color="purple" icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="7" r="4"/><path d="M5.5 21a8.38 8.38 0 0 1 13 0"/></svg>} sub="years"/>
+        </>
+        }
       </div>
 
       {/* Overdue Alert — Premium CRM Panel */}
@@ -2369,7 +2373,7 @@ function OnboardingQueue({ onboarding, applications = [], refresh, nav, zones, c
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mx-auto mb-3 text-gray-300"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
             <p className="font-medium mb-1">No online applications yet</p>
             <p className="text-sm">When new members submit the online form, their applications will appear here.</p>
-            <p className="text-xs mt-2 text-blue-500">Share the join link: <strong>your-github-url/join.html</strong></p>
+            <p className="text-xs mt-2 text-blue-500">Share the join link: <strong>https://boiparasz.github.io/boipra-sz/join.html</strong></p>
           </div>
         ) : (
           <div className="space-y-3">
