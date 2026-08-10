@@ -688,8 +688,10 @@ let DB = makeEmptyDB();
 function getAge(dob) {
   if (!dob) return null;
   const d = new Date(dob), now = new Date();
+    if (isNaN(d.getTime())) return null;
   let a = now.getFullYear() - d.getFullYear();
   if (now.getMonth() < d.getMonth() || (now.getMonth() === d.getMonth() && now.getDate() < d.getDate())) a--;
+  if (a < 0 || a > 110) return null;
   return a;
 }
 
